@@ -18,6 +18,9 @@ node_modules/
 # Eval outputs (generated audio, scores)
 eval/out/
 
+# Local scratch audio
+test.wav
+
 # OS
 .DS_Store
 

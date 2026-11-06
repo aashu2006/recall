@@ -16,7 +16,14 @@ class Settings(BaseSettings):
 
     # Gnani (Prisma STT, Timbre TTS)
     gnani_api_key: str = ""
+    gnani_base_url: str = "https://api.vachana.ai"
     gnani_stt_model: str = "prisma-v3.0"
+    gnani_stt_language_code: str = "hi-IN,en-IN"
+    gnani_stt_format: str = "codemix"
+    gnani_stt_keyterms: list[str] = ["MS sheet", "bracket", "angle", "channel", "mm", "kg", "piece"]
+    gnani_stt_timeout: float = 60.0
+    # VAD chunks sent to Prisma REST (limit 30 s). Lower it for finer proof clips.
+    gnani_stt_max_chunk_s: float = 28.0
     gnani_tts_model: str = "timbre-v2.5"
     gnani_tts_voice: str = "Poorvi"
 

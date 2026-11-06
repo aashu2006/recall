@@ -1,0 +1,9 @@
+{
+  "success": true,
+  "request_id": "fixture-req-0001",
+  "transcript": "Sharma ji bol raha hoon, 50 piece MS sheet 2 mm wala Friday tak bhej dena",
+  "model": "prisma-v3.0",
+  "detected_language_code": "hi-IN",
+  "processing_time": 0.61,
+  "end_to_end_latency": 0.74
+}
