@@ -1,0 +1,26 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Node / Next.js
+node_modules/
+.next/
+.vercel/
+
+# Eval outputs (generated audio, scores)
+eval/out/
+
+# OS
+.DS_Store
+
+# Local agent notes
+CLAUDE.md
+.claude/
