@@ -99,7 +99,7 @@ def test_request_fields_and_previous_text(settings, fake_chunks, sleeps):
     assert fields["model"] == "prisma-v3.0"
     assert fields["language_code"] == "hi-IN,en-IN"
     assert fields["format"] == "codemix"
-    assert "MS sheet" in json.loads(fields["keyterms"])
+    assert "keyterms" not in fields  # default setting is empty
     assert "previous_text" not in fields
     assert form(second)["previous_text"] == OK_BODY["transcript"]
     # Chunk 2 was empty, so chunk 3 still gets chunk 1's text.
@@ -114,6 +114,50 @@ def test_empty_chunk_is_not_a_segment(settings, fake_chunks, sleeps):
 
     assert result["segments"] == [{"start": 6.5, "end": 9.0, "text": "channel 6 meter"}]
     assert result["transcript"] == "channel 6 meter"
+
+
+def test_keyterms_argument_is_sent_on_every_chunk(settings, fake_chunks, sleeps):
+    fake_chunks([(0.0, 5.0), (6.5, 9.0)])
+    client, requests = mock_client([ok(), ok()])
+
+    stt.transcribe(
+        "note.ogg", settings=settings, client=client, keyterms=["Sharma ji", "MS sheet", "bracket"]
+    )
+
+    for request in requests:
+        assert json.loads(form(request)["keyterms"]) == ["Sharma ji", "MS sheet", "bracket"]
+
+
+def test_keyterms_fall_back_to_settings(settings, fake_chunks, sleeps):
+    fake_chunks([(0.0, 5.0)])
+    settings.gnani_stt_keyterms = ["angle", "channel"]
+    client, requests = mock_client([ok()])
+
+    stt.transcribe("note.ogg", settings=settings, client=client)
+
+    assert json.loads(form(requests[0])["keyterms"]) == ["angle", "channel"]
+
+
+def test_empty_keyterms_override_settings(settings, fake_chunks, sleeps):
+    fake_chunks([(0.0, 5.0)])
+    settings.gnani_stt_keyterms = ["angle", "channel"]
+    client, requests = mock_client([ok()])
+
+    stt.transcribe("note.ogg", settings=settings, client=client, keyterms=[])
+
+    assert "keyterms" not in form(requests[0])
+
+
+def test_keyterms_cleaned_and_capped(settings, fake_chunks, sleeps):
+    fake_chunks([(0.0, 5.0)])
+    terms = [" MS sheet ", "ms sheet", "", "kg"] + [f"item {i}" for i in range(300)]
+    client, requests = mock_client([ok()])
+
+    stt.transcribe("note.ogg", settings=settings, client=client, keyterms=terms)
+
+    sent = json.loads(form(requests[0])["keyterms"])
+    assert len(sent) == stt.MAX_KEYTERMS
+    assert sent[:3] == ["MS sheet", "kg", "item 0"]
 
 
 def test_retries_503_then_succeeds(settings, fake_chunks, sleeps):

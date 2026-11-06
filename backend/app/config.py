@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     gnani_stt_model: str = "prisma-v3.0"
     gnani_stt_language_code: str = "hi-IN,en-IN"
     gnani_stt_format: str = "codemix"
-    gnani_stt_keyterms: list[str] = ["MS sheet", "bracket", "angle", "channel", "mm", "kg", "piece"]
+    # Fallback keyterms when transcribe() gets none. Per-client lists are built from the DB.
+    gnani_stt_keyterms: list[str] = []
     gnani_stt_timeout: float = 60.0
     # VAD chunks sent to Prisma REST (limit 30 s). Lower it for finer proof clips.
     gnani_stt_max_chunk_s: float = 28.0

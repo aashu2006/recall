@@ -25,6 +25,7 @@ log = logging.getLogger(__name__)
 RETRY_STATUSES = {429, 500, 503, 504}
 BACKOFF_S = (0.5, 1.0, 2.0)  # first try + one retry per delay
 PREVIOUS_TEXT_MAX = 600  # Prisma keeps only the last 600 chars
+MAX_KEYTERMS = 200  # Prisma v3.0 limit
 
 _sleep = time.sleep  # patched in tests
 
@@ -47,6 +48,7 @@ class SttError(Exception):
 def transcribe(
     audio_path: str | Path,
     *,
+    keyterms: list[str] | None = None,
     settings: Settings | None = None,
     client: httpx.Client | None = None,
 ) -> dict:
@@ -54,10 +56,14 @@ def transcribe(
 
     Returns {"transcript", "segments": [{start, end, text}], "model"}. Segment times are
     chunk offsets in the original audio, in seconds.
+
+    keyterms: words to bias recognition for this note (client names, their open order items).
+    None falls back to settings.gnani_stt_keyterms; [] sends no keyterms.
     """
     settings = settings or get_settings()
     if not settings.gnani_api_key:
         raise SttError("GNANI_API_KEY is not set")
+    terms = _clean_keyterms(settings.gnani_stt_keyterms if keyterms is None else keyterms)
 
     owns_client = client is None
     client = client or httpx.Client(timeout=settings.gnani_stt_timeout)
@@ -70,7 +76,7 @@ def transcribe(
             )
             previous_text = None
             for chunk in chunks:
-                body = _post_chunk(client, settings, chunk.path, previous_text)
+                body = _post_chunk(client, settings, chunk.path, previous_text, terms)
                 model = body.get("model") or model
                 text = (body.get("transcript") or "").strip()
                 if text:
@@ -87,8 +93,26 @@ def transcribe(
     }
 
 
+def _clean_keyterms(terms: list[str]) -> list[str]:
+    """Strip, drop blanks and duplicates (case-insensitive), cap at Prisma's limit."""
+    seen: set[str] = set()
+    out = []
+    for term in terms:
+        term = term.strip()
+        if term and term.casefold() not in seen:
+            seen.add(term.casefold())
+            out.append(term)
+    if len(out) > MAX_KEYTERMS:
+        log.warning("Dropping %d keyterms over the limit of %d", len(out) - MAX_KEYTERMS, MAX_KEYTERMS)
+    return out[:MAX_KEYTERMS]
+
+
 def _post_chunk(
-    client: httpx.Client, settings: Settings, path: Path, previous_text: str | None
+    client: httpx.Client,
+    settings: Settings,
+    path: Path,
+    previous_text: str | None,
+    keyterms: list[str],
 ) -> dict:
     """POST one <= 30 s chunk to Prisma REST, retrying 429/5xx and connection errors."""
     data = {
@@ -96,8 +120,8 @@ def _post_chunk(
         "language_code": settings.gnani_stt_language_code,
         "format": settings.gnani_stt_format,
     }
-    if settings.gnani_stt_keyterms:
-        data["keyterms"] = json.dumps(settings.gnani_stt_keyterms, ensure_ascii=False)
+    if keyterms:
+        data["keyterms"] = json.dumps(keyterms, ensure_ascii=False)
     if previous_text:
         data["previous_text"] = previous_text
     audio = Path(path).read_bytes()
