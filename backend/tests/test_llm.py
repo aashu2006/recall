@@ -115,3 +115,59 @@ def test_skips_unconfigured_groq():
 def test_nothing_configured_raises():
     with pytest.raises(llm.LlmError, match="No LLM configured"):
         llm.complete_json("s", "u", Answer, settings=Settings(_env_file=None))
+
+
+def groq_429(wait: str) -> httpx.Response:
+    return httpx.Response(429, json={"error": {
+        "message": f"Rate limit reached for model `groq-m` on tokens per minute (TPM): Limit 8000, "
+                   f"Used 7400, Requested 1900. Please try again in {wait}. Visit https://console.groq.com",
+        "type": "tokens", "code": "rate_limit_exceeded"}})
+
+
+@pytest.fixture
+def sleeps(monkeypatch):
+    out = []
+    monkeypatch.setattr(llm.time, "sleep", out.append)
+    return out
+
+
+def test_groq_429_waits_and_retries_groq_once(sleeps):
+    client, requests = mock_client([groq_429("1.5s"), groq_ok('{"item": "bracket", "quantity": 300}')])
+
+    out = llm.complete_json("s", "u", Answer, settings=settings(), client=client)
+
+    assert out.quantity == 300 and sleeps == [2.0]
+    assert all("groq.com" in str(r.url) for r in requests)
+
+
+def test_groq_429_twice_falls_back_to_gemini(sleeps):
+    client, requests = mock_client([groq_429("700ms"), groq_429("2s"), gemini_ok('{"item": "a", "quantity": 1}')])
+
+    assert llm.complete_json("s", "u", Answer, settings=settings(), client=client).quantity == 1
+    assert len(sleeps) == 1 and "generateContent" in str(requests[2].url)
+
+
+def test_groq_429_with_long_wait_falls_back_without_waiting(sleeps):
+    client, requests = mock_client([groq_429("12m3.2s"), gemini_ok('{"item": "a", "quantity": 1}')])
+
+    assert llm.complete_json("s", "u", Answer, settings=settings(), client=client).quantity == 1
+    assert sleeps == [] and len(requests) == 2
+
+
+def test_gemini_429_is_not_retried(sleeps):
+    client, requests = mock_client([httpx.Response(429, headers={"retry-after": "2"}, json={"error": "rate"})])
+
+    with pytest.raises(llm.LlmError):
+        llm.complete_json("s", "u", Answer, settings=settings(groq_api_key=""), client=client)
+    assert sleeps == [] and len(requests) == 1
+
+
+@pytest.mark.parametrize("text,header,expected", [
+    ("Please try again in 7.66s.", None, 7.66),
+    ("try again in 1m2.5s", None, 62.5),
+    ("try again in 450ms", None, 0.45),
+    ("no hint", "3", 3.0),
+    ("no hint", None, None),
+])
+def test_retry_after_seconds(text, header, expected):
+    assert llm.retry_after_seconds(text, header) == expected

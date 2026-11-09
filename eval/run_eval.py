@@ -10,6 +10,7 @@ eval/out/results.json (transcripts, extracted items, decisions, per item scores)
 Credits: transcripts are cached in eval/out/transcripts by audio SHA-256 plus the STT
 settings and keyterms, so re-runs never pay Prisma again for the same audio. The LLM
 (Groq / Gemini via backend/app/llm.py) runs every time; --no-match skips the matcher calls.
+--pause (default 10 s) waits between runs so Groq's free tokens-per-minute limit isn't hit.
 
 Metrics, per variant (clean = Timbre audio, noisy = 8 kHz phone copy with noise):
 - WER / CER: corpus level vs the case reference, after normalising punctuation and
@@ -353,6 +354,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--only", help="comma separated case ids")
     p.add_argument("--variants", default="clean,noisy", help="clean, noisy or both")
     p.add_argument("--no-match", action="store_true", help="skip matcher LLM calls")
+    p.add_argument("--pause", type=float, default=10.0,
+                   help="seconds to wait between runs, keeps Groq under its tokens-per-minute limit (default 10)")
     p.add_argument("--out", type=Path, default=RESULTS_MD)
     p.add_argument("--json-out", type=Path, default=RESULTS_JSON)
     p.add_argument("--dry-run", action="store_true", help="print the plan, call nothing")
@@ -401,7 +404,9 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     records = []
-    for case, v, audio in jobs:
+    for n, (case, v, audio) in enumerate(jobs):
+        if n and args.pause > 0:
+            time.sleep(args.pause)
         rec = run_variant(case, v, audio, ctx)
         records.append(rec)
         status = rec.get("error") or (

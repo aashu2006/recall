@@ -1,9 +1,9 @@
-import re
 from datetime import date
+
+import pytest
 
 from app import extract, pipeline, whatsapp
 from app.extract import Item
-from app.matcher import LlmMatch
 from scripts import seed
 from tests.fake_db import FakeDb
 from tests.fakes import CALL_TIME
@@ -64,10 +64,7 @@ def test_gupta_ms_sheet_update_goes_to_owner_with_both_orders(tmp_path, monkeypa
     def complete_json(system, user, schema):
         if schema is extract.Extraction:
             return extract.Extraction(items=[GUPTA_ITEM])
-        # matcher: like the real LLM, flag every open order the note could mean
-        orders = user.split("Voice note se nikla item:")[0]
-        ids = [int(m) for m in re.findall(r"#(\d+), MS sheet,", orders)]
-        return LlmMatch(order_id=ids[0], candidate_ids=ids, confidence=0.8)
+        pytest.fail("matcher LLM called: two open MS sheet orders must go to the owner without it")
 
     monkeypatch.setattr(pipeline.stt, "transcribe", lambda path, *, keyterms=None: {
         "transcript": GUPTA_TRANSCRIPT, "segments": [{"start": 0.3, "end": 6.1, "text": GUPTA_TRANSCRIPT}]})

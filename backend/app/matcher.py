@@ -7,6 +7,10 @@ new order), candidate ids and a confidence. Code then decides:
 - "update": exactly one candidate, confidence >= MIN_CONFIDENCE, and the order's item name
   was actually said (in item / order_ref / evidence)
 - "confirm": anything else. Goes to pending_confirmations, never straight to orders.
+
+Before the LLM: an update whose item name fits more than one of the client's open orders
+("MS sheet wala order" with two open MS sheet orders) always goes to the owner with those
+orders as candidates. The LLM is not asked to break that tie.
 """
 
 from dataclasses import dataclass, field
@@ -42,6 +46,12 @@ def match(item: Item, open_orders: list[dict]) -> Decision:
             return Decision("create", None, item.confidence, reason="koi open order nahi")
         return Decision("confirm", None, item.confidence, reason="update hai par koi open order nahi"
                         if item.kind == "update" else "extraction pakka nahi")
+
+    if item.kind == "update":
+        same_name = sorted(o["id"] for o in open_orders if names_match(o, item))
+        if len(same_name) > 1:
+            return Decision("confirm", None, min(item.confidence, MIN_CONFIDENCE - 0.01), same_name,
+                            f"{len(same_name)} open orders ka item naam voice note mein bola, owner se poochho")
 
     by_id = {o["id"]: o for o in open_orders}
     user = prompts.MATCH_USER.format(

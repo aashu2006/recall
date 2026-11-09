@@ -117,3 +117,32 @@ def test_names_match_handles_plural_and_multiword():
 
     assert matcher.names_match({"item": "MS sheet"}, item)
     assert not matcher.names_match({"item": "bracket"}, item)
+
+
+SHEET_A = {"id": 3, "client_id": 2, "item": "MS sheet", "spec": "2mm", "quantity": 100, "unit": "pcs",
+           "rate": 1150, "delivery_date": "2026-11-09", "status": "open"}
+SHEET_B = {**SHEET_A, "id": 7, "quantity": 60, "rate": 1100, "delivery_date": "2026-11-13"}
+SHEET_UPDATE = extract.Item(
+    kind="update", item="MS sheet", quantity=150, changed_fields=["quantity"],
+    order_ref="MS sheet वाला order", evidence="वो MS sheet वाला order है ना, उसको one fifty कर दो",
+    confidence=0.95,
+)
+
+
+def test_update_with_two_same_name_orders_asks_owner_without_llm(monkeypatch):
+    # an overconfident LLM would pick one; the rule runs first and never asks it
+    monkeypatch.setattr(extract.llm, "complete_json", lambda *a: pytest.fail("LLM called"))
+
+    decision = matcher.match(SHEET_UPDATE, [SHEET_B, BRACKET_ORDER, SHEET_A])
+
+    assert decision.action == "confirm" and decision.order_id is None
+    assert decision.candidate_ids == [3, 7]
+    assert decision.confidence < matcher.MIN_CONFIDENCE
+
+
+def test_same_name_rule_only_counts_the_item_that_was_said(fake_llm):
+    prompts = fake_llm(EXTRACT_KEYTERMS, LlmMatch(order_id=12, candidate_ids=[12], confidence=0.92))
+
+    decision = matcher.match(extract_update(TRANSCRIPT_KEYTERMS), [BRACKET_ORDER, SHEET_A, SHEET_B])
+
+    assert decision.action == "update" and decision.order_id == 12 and len(prompts) == 1

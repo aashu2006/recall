@@ -34,6 +34,14 @@ def no_real_http(monkeypatch):
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", blocked)
 
 
+@pytest.fixture(autouse=True)
+def pauses(monkeypatch):
+    """run_eval --pause sleeps between runs; record instead of waiting."""
+    out = []
+    monkeypatch.setattr(run_eval.time, "sleep", out.append)
+    return out
+
+
 # ------------------------------------------------------------------ cases.json
 
 def test_cases_cover_the_prd_and_reference_real_seed_orders():
@@ -165,7 +173,7 @@ def _fake_pipeline(monkeypatch, data, *, stt_calls):
     return audio_to_case
 
 
-def test_run_eval_end_to_end_mocked(tmp_path, monkeypatch):
+def test_run_eval_end_to_end_mocked(tmp_path, monkeypatch, pauses):
     data = load_cases()
     stt_calls: list[str] = []
     audio_to_case = _fake_pipeline(monkeypatch, data, stt_calls=stt_calls)
@@ -191,12 +199,15 @@ def test_run_eval_end_to_end_mocked(tmp_path, monkeypatch):
     raw = json.loads((tmp_path / "results.json").read_text())
     assert len(raw["records"]) == 20 and not any("error" in r for r in raw["records"])
 
+    assert pauses == [10.0] * 19  # default --pause between the 20 runs, none after the last
+    pauses.clear()
+
     # Second run: every transcript comes from the cache, Prisma is never called again.
     assert run_eval.main(args) == 0
     assert len(stt_calls) == 20
 
 
-def test_run_eval_dry_run_and_decline_call_nothing(tmp_path, monkeypatch):
+def test_run_eval_dry_run_and_decline_call_nothing(tmp_path, monkeypatch, pauses):
     data = load_cases()
     stt_calls: list[str] = []
     audio_to_case = _fake_pipeline(monkeypatch, data, stt_calls=stt_calls)
@@ -207,7 +218,7 @@ def test_run_eval_dry_run_and_decline_call_nothing(tmp_path, monkeypatch):
     assert run_eval.main([*base, "--dry-run"]) == 0
     monkeypatch.setattr("builtins.input", lambda _: "n")
     assert run_eval.main(base) == 1
-    assert stt_calls == [] and not (tmp_path / "r.md").exists()
+    assert stt_calls == [] and not (tmp_path / "r.md").exists() and pauses == []
 
 
 def test_one_failing_case_does_not_lose_the_run(tmp_path, monkeypatch):

@@ -5,13 +5,17 @@ Groq is primary, Gemini Flash-Lite is the fallback. Model names come from env
 
 complete_json(system, user, Schema):
 - tries Groq, then Gemini (a provider is skipped if its key or model is not set)
-- HTTP errors, rate limits and timeouts move on to the next provider
+- a Groq 429 that says "try again in Xs" (X <= RATE_LIMIT_MAX_WAIT_S) is retried once
+  after that wait, since free-tier tokens-per-minute limits clear in seconds
+- other HTTP errors, rate limits and timeouts move on to the next provider
 - invalid JSON or a schema mismatch gets one retry on the same provider, with the
   validation error sent back to the model, then moves on
 """
 
 import json
 import logging
+import re
+import time
 from typing import TypeVar
 
 import httpx
@@ -23,6 +27,9 @@ log = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
+RATE_LIMIT_MAX_WAIT_S = 30.0  # longer waits (daily limits) fall back right away
+_TRY_AGAIN = re.compile(r"try again in (?:(\d+)h)?(?:(\d+)m(?!s))?(?:(\d+(?:\.\d+)?)(ms|s))?", re.I)
+
 
 class LlmError(Exception):
     pass
@@ -30,6 +37,10 @@ class LlmError(Exception):
 
 class _ProviderError(Exception):
     """HTTP or transport failure from one provider. Triggers the fallback."""
+
+    def __init__(self, message: str, retry_after: float | None = None):
+        super().__init__(message)
+        self.retry_after = retry_after  # seconds, for a 429 that says when to come back
 
 
 def complete_json(
@@ -58,7 +69,7 @@ def complete_json(
             messages = [{"role": "user", "content": user}]
             for attempt in range(2):
                 try:
-                    raw = call(client, settings, system, messages)
+                    raw = _call_once_more_if_rate_limited(name, call, client, settings, system, messages)
                 except _ProviderError as e:
                     errors.append(f"{name}: {e}")
                     log.warning("LLM %s failed: %s", name, e)
@@ -80,6 +91,31 @@ def complete_json(
         if owns_client:
             client.close()
     raise LlmError("All LLM providers failed: " + " | ".join(errors))
+
+
+def _call_once_more_if_rate_limited(name, call, client, settings, system, messages) -> str:
+    try:
+        return call(client, settings, system, messages)
+    except _ProviderError as e:
+        wait = e.retry_after
+        if name != "groq" or wait is None or wait > RATE_LIMIT_MAX_WAIT_S:
+            raise
+        log.warning("Groq rate limited, retrying once in %.1fs", wait)
+        time.sleep(wait + 0.5)
+        return call(client, settings, system, messages)
+
+
+def retry_after_seconds(text: str, header: str | None = None) -> float | None:
+    """Wait time from a 429: "Please try again in 7.66s" / "1m2.5s" / "450ms", else Retry-After."""
+    m = _TRY_AGAIN.search(text or "")
+    if m and any(m.groups()[:3]):
+        hours, minutes, num, unit = m.groups()
+        secs = float(num or 0) / (1000 if unit == "ms" else 1)
+        return int(hours or 0) * 3600 + int(minutes or 0) * 60 + secs
+    try:
+        return float(header) if header is not None else None
+    except ValueError:
+        return None
 
 
 def _providers(settings: Settings):
@@ -105,7 +141,8 @@ def _post(client: httpx.Client, url: str, **kwargs) -> dict:
     except httpx.TransportError as e:
         raise _ProviderError(f"connection error: {e}") from e
     if r.status_code != 200:
-        raise _ProviderError(f"HTTP {r.status_code}: {r.text[:300]}")
+        wait = retry_after_seconds(r.text, r.headers.get("retry-after")) if r.status_code == 429 else None
+        raise _ProviderError(f"HTTP {r.status_code}: {r.text[:300]}", retry_after=wait)
     try:
         return r.json()
     except ValueError as e:
