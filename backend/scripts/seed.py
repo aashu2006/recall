@@ -2,8 +2,10 @@
 
     cd backend && uv run python -m scripts.seed [--sharma-phone 9198xxxxxxxx] [--owner-phone ...]
 
-Sharma Steels gets the open "200 bracket @ 45" order the demo voice note updates. Other
-orders are due today and tomorrow (Asia/Kolkata) so the morning briefing has content.
+Sharma Steels gets the open "200 bracket @ 45" order the demo voice note updates. Gupta
+Fabricators gets two open MS sheet orders, so "MS sheet wala order 150 kar do" is ambiguous
+and goes to the owner with both orders as buttons. Other orders are due today and tomorrow
+(Asia/Kolkata) so the morning briefing has content.
 Orders go through create_order, so each gets its 'created' order_changes row.
 Skips any client whose phone already exists, so it is safe to re-run.
 For the WhatsApp demo, pass the verified test numbers you will send voice notes from.
@@ -42,11 +44,20 @@ CLIENTS = [
     },
 ]
 
+# Created after every client's orders above, so those keep ids 1-6 in a fresh DB
+# (eval/cases.json relies on that; the eval world is built from CLIENTS only).
+EXTRA_ORDERS = {
+    "gupta": [
+        {"item": "MS sheet", "spec": "2mm", "quantity": 60, "unit": "pcs", "rate": 1100, "days": 4},
+    ],
+}
+
 
 def seed(db: Db, today: date, phones: dict[str, str] | None = None) -> dict:
     """Create clients and orders. phones overrides a client's phone by key. Returns ids."""
     phones = phones or {}
     out = {"clients": {}, "orders": []}
+    created = {}
     for c in CLIENTS:
         phone = normalize_phone(phones.get(c["key"]) or c["phone"])
         existing = db.client_by_phone(phone)
@@ -55,14 +66,23 @@ def seed(db: Db, today: date, phones: dict[str, str] | None = None) -> dict:
             continue
         client = db.create_client(c["name"], phone, c["aliases"])
         out["clients"][c["key"]] = client["id"]
+        created[c["key"]] = (c["name"], client["id"])
         for o in c["orders"]:
-            fields = {k: v for k, v in o.items() if k != "days"}
-            fields["delivery_date"] = today + timedelta(days=o["days"])
-            order_id = db.create_order(client["id"], fields)
-            out["orders"].append(order_id)
-            print(f"{c['name']} #{client['id']}: order #{order_id} {o['quantity']} {o['item']} "
-                  f"@ {o['rate']}, delivery {fields['delivery_date']}")
+            out["orders"].append(_create_order(db, c["name"], client["id"], o, today))
+    for key, orders in EXTRA_ORDERS.items():
+        if key in created:
+            for o in orders:
+                out["orders"].append(_create_order(db, *created[key], o, today))
     return out
+
+
+def _create_order(db: Db, client_name: str, client_id: int, o: dict, today: date) -> int:
+    fields = {k: v for k, v in o.items() if k != "days"}
+    fields["delivery_date"] = today + timedelta(days=o["days"])
+    order_id = db.create_order(client_id, fields)
+    print(f"{client_name} #{client_id}: order #{order_id} {o['quantity']} {o['item']} "
+          f"@ {o['rate']}, delivery {fields['delivery_date']}")
+    return order_id
 
 
 def main(argv: list[str] | None = None) -> None:
