@@ -9,6 +9,7 @@ dependencies = [
     "httpx>=0.27",
     "pydantic-settings>=2.4",
     "pysilero-vad>=3.4.0",
+    "supabase>=2.34.1",
 ]
 
 [dependency-groups]
