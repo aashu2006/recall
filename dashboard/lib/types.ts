@@ -66,3 +66,19 @@ export interface PendingConfirmation {
   created_at: string;
   clients: Pick<Client, "name"> | null;
 }
+
+/** wa_sends: every outbound WhatsApp attempt (003_wa_sends.sql, 004_wa_sends_log.sql). */
+export interface WaSend {
+  id: number;
+  to_phone: string;
+  /** client_summary, owner_question, owner_reply, owner_alert, briefing (older rows: text, buttons, audio). */
+  kind: string;
+  msg_type: string | null;
+  body: string | null;
+  /** Object path in the audio bucket, for voice notes. */
+  media_path: string | null;
+  status: "sent" | "failed" | "preview" | string;
+  error: string | null;
+  wa_message_id: string | null;
+  created_at: string;
+}

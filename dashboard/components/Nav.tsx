@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/", label: "Orders" },
   { href: "/calls", label: "Calls" },
   { href: "/pending", label: "Pending" },
+  { href: "/outbox", label: "Outbox" },
 ];
 
 export default function Nav() {

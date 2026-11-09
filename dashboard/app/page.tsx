@@ -1,6 +1,7 @@
 import { Mic } from "lucide-react";
 import Link from "next/link";
-import { Empty, PageHeader, StatCard, Unit } from "@/components/common";
+import BriefingHeader from "@/components/BriefingHeader";
+import { Empty, StatCard, Unit } from "@/components/common";
 import FlashBody from "@/components/FlashBody";
 import { Card } from "@/components/ui/card";
 import { Table, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -107,7 +108,7 @@ export default async function Home() {
 
   return (
     <>
-      <PageHeader title="Orders" aside={fmtDate(today, true)} />
+      <BriefingHeader date={fmtDate(today, true)} />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="Open orders" value={orders.length} />

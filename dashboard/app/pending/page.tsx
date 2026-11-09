@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import PendingOptions from "@/app/pending/PendingOptions";
 import { Empty, PageHeader } from "@/components/common";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { fmtDate, fmtNum, fmtRate, fmtTime } from "@/lib/format";
 import { Highlight } from "@/lib/highlight";
@@ -25,7 +25,7 @@ export default async function PendingPage() {
     <>
       <PageHeader
         title="Pending"
-        description="When Recall isn't sure, it asks on WhatsApp instead of guessing. Nothing is saved until you answer."
+        description="When Recall isn't sure, it asks instead of guessing. Nothing is saved until you answer, here or on WhatsApp."
         aside={items.length > 0 && `${items.length} waiting`}
       />
       <Card className="gap-0 py-0">
@@ -101,36 +101,17 @@ function PendingEntry({ p }: { p: PendingConfirmation }) {
         </p>
       )}
       {facts.length > 0 && <p className="mt-1 text-[13px] text-muted-foreground">Heard: {facts.join(" · ")}</p>}
-      <Options options={p.options} />
+      <PendingOptions id={p.id} options={optionValues(p.options)} />
     </div>
   );
 }
 
-/** The owner's WhatsApp buttons: candidate order ids, "new", and always a "no". Answered on WhatsApp. */
-function Options({ options }: { options: unknown }) {
-  const opts = (Array.isArray(options) ? options : [])
+/** Option values from the pipeline: order ids and "new" ("no" is always offered). Older rows may hold objects. */
+function optionValues(options: unknown): string[] {
+  return (Array.isArray(options) ? options : [])
     .map((o) => (typeof o === "object" && o !== null ? ((o as Record<string, unknown>).order_id ?? (o as Record<string, unknown>).id) : o))
     .filter((o): o is number | string => typeof o === "number" || typeof o === "string")
+    .map(String)
+    .filter((o) => o === "new" || /^\d+$/.test(o))
     .slice(0, 2);
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2">
-      {opts.map((o) =>
-        String(o) === "new" ? (
-          <Button key="new" variant="outline" size="sm" disabled>
-            Naya order
-          </Button>
-        ) : /^\d+$/.test(String(o)) ? (
-          <Button key={o} variant="outline" size="sm" asChild>
-            <Link href={`/orders/${o}`}>
-              Order <span className="num">#{o}</span>
-            </Link>
-          </Button>
-        ) : null,
-      )}
-      <Button variant="outline" size="sm" disabled>
-        Nahi
-      </Button>
-      <span className="ml-1 text-[13px] text-muted-foreground">Answer on WhatsApp</span>
-    </div>
-  );
 }

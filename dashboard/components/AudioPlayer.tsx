@@ -12,6 +12,8 @@ interface Props {
   end?: number | null;
   /** Total length, if known, so a full recording shows its length before it loads. */
   duration?: number | null;
+  /** Start playing as soon as it mounts (right after the user asked for it). */
+  autoPlay?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface Props {
  * for the latest one if loading fails (e.g. the signature expired). This keeps the
  * 10 s auto refresh from restarting playback.
  */
-export default function AudioPlayer({ src, start, end, duration }: Props) {
+export default function AudioPlayer({ src, start, end, duration, autoPlay = false }: Props) {
   const [current, setCurrent] = useState(src);
   const latest = useRef(src);
   const ref = useRef<HTMLAudioElement>(null);
@@ -34,6 +36,11 @@ export default function AudioPlayer({ src, start, end, duration }: Props) {
     latest.current = src;
     if (!current && src) setCurrent(src);
   }, [src, current]);
+
+  useEffect(() => {
+    // Browsers may block this if the click was too long ago; the play button still works.
+    if (autoPlay) void ref.current?.play().catch(() => setPlaying(false));
+  }, [autoPlay]);
 
   if (!current) return <p className="text-[13px] text-muted-foreground">Recording not available</p>;
 
@@ -72,7 +79,7 @@ export default function AudioPlayer({ src, start, end, duration }: Props) {
       </span>
       <audio
         ref={ref}
-        preload={clip || duration != null ? "none" : "metadata"}
+        preload={autoPlay ? "auto" : clip || duration != null ? "none" : "metadata"}
         src={url}
         className="hidden"
         onError={() => {
