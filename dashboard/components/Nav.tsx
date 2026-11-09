@@ -19,11 +19,13 @@ export default function Nav() {
           <Link
             key={href}
             href={href}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              active ? "bg-ink text-bg" : "text-muted hover:bg-line/60 hover:text-ink"
+            aria-current={active ? "page" : undefined}
+            className={`relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
+              active ? "bg-raised text-ink" : "text-muted hover:bg-raised/60 hover:text-ink"
             }`}
           >
             {label}
+            {active && <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-accent max-sm:hidden" />}
           </Link>
         );
       })}

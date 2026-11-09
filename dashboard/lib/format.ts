@@ -7,12 +7,13 @@ export function istDate(offsetDays = 0): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(d);
 }
 
-/** "Mon, 9 Nov" from a YYYY-MM-DD date column. */
-export function fmtDate(date: string | null): string {
+/** "Mon, 9 Nov" (or "Monday, 9 November" when long) from a YYYY-MM-DD date column. */
+export function fmtDate(date: string | null, long = false): string {
   if (!date) return "—";
   const d = new Date(`${date}T00:00:00Z`);
   if (Number.isNaN(d.getTime())) return date;
-  return d.toLocaleDateString("en-IN", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+  const style = long ? "long" : "short";
+  return d.toLocaleDateString("en-IN", { timeZone: "UTC", weekday: style, day: "numeric", month: style });
 }
 
 /** "9 Nov, 4:05 pm" from a timestamptz. */
@@ -68,4 +69,19 @@ export function fmtChangeValue(field: string, value: string | null): string {
   if (field === "rate") return fmtRate(value);
   if (field === "quantity") return fmtNum(value);
   return value;
+}
+
+/** "+100", "−₹3" for numeric quantity/rate changes, else null. */
+export function fmtDelta(field: string, oldValue: string | null, newValue: string | null): string | null {
+  if (field !== "quantity" && field !== "rate") return null;
+  const a = Number(oldValue);
+  const b = Number(newValue);
+  if (oldValue == null || newValue == null || !Number.isFinite(a) || !Number.isFinite(b) || a === b) return null;
+  const d = Math.abs(b - a);
+  return `${b > a ? "+" : "−"}${field === "rate" ? "₹" : ""}${fmtNum(d)}`;
+}
+
+/** Where a change came from when it has no call: seeded or typed in by the owner. */
+export function manualLabel(field: string): string {
+  return field === "created" ? "Added manually" : "Edited manually";
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, Empty, PageTitle } from "@/components/ui";
+import { Badge, Card, Empty, PageTitle, SectionTitle, StatStrip } from "@/components/ui";
 import { fmtDate, fmtNum, fmtRate, istDate } from "@/lib/format";
 import { db, must } from "@/lib/supabase";
 import type { Order } from "@/lib/types";
@@ -21,6 +21,9 @@ async function load() {
   return { orders: must<Order[]>(orders), pendingCount: pending.count ?? 0 };
 }
 
+/** Changes whenever the order does, so the row remounts and fades in after a refresh. */
+const rowKey = (o: Order) => `${o.id}-${o.updated_at}`;
+
 export default async function Home() {
   const { orders, pendingCount } = await load();
   const today = istDate(0);
@@ -28,89 +31,117 @@ export default async function Home() {
   const dueToday = orders.filter((o) => o.delivery_date === today);
   const dueTomorrow = orders.filter((o) => o.delivery_date === tomorrow);
   const overdue = orders.filter((o) => o.delivery_date && o.delivery_date < today).length;
+  const clients = new Set(orders.map((o) => o.client_id)).size;
 
   return (
     <>
-      <PageTitle sub={`${fmtDate(today)} · ${orders.length} open orders${overdue ? ` · ${overdue} overdue` : ""}`}>
-        Order book
-      </PageTitle>
+      <PageTitle sub={fmtDate(today, true)}>Order book</PageTitle>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <DeliveryCard title="Today" date={today} orders={dueToday} />
-        <DeliveryCard title="Tomorrow" date={tomorrow} orders={dueTomorrow} />
-        <Link
-          href="/pending"
-          className={`flex flex-col justify-between rounded-xl border p-4 transition-colors ${
-            pendingCount
-              ? "border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/15"
-              : "border-line bg-surface hover:bg-line/30"
-          }`}
-        >
-          <span className="text-sm font-medium text-muted">Pending confirmations</span>
-          <span className="mt-2 text-3xl font-semibold tabular-nums">{pendingCount}</span>
-          <span className="mt-1 text-xs text-muted">{pendingCount ? "Waiting for owner's tap →" : "Nothing to confirm"}</span>
-        </Link>
+      <StatStrip
+        stats={[
+          { label: "Open orders", value: orders.length, note: `${clients} ${clients === 1 ? "client" : "clients"}` },
+          {
+            label: "Deliveries today",
+            value: dueToday.length,
+            note: overdue ? `${overdue} overdue from earlier` : fmtDate(today),
+          },
+          { label: "Deliveries tomorrow", value: dueTomorrow.length, note: fmtDate(tomorrow) },
+          {
+            label: "Needs your answer",
+            value: pendingCount,
+            note: pendingCount ? "Answer on WhatsApp" : "Nothing to confirm",
+            href: "/pending",
+            alert: pendingCount > 0,
+          },
+        ]}
+      />
+
+      <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-6">
+        <DeliveryDay title="Today" date={today} orders={dueToday} />
+        <DeliveryDay title="Tomorrow" date={tomorrow} orders={dueTomorrow} />
       </div>
 
-      <h2 className="mt-8 mb-3 text-sm font-semibold uppercase tracking-wide text-muted">Open orders</h2>
-      <Card>{orders.length ? <OrdersTable orders={orders} today={today} /> : <Empty>No open orders yet.</Empty>}</Card>
+      <div className="mt-10">
+        <SectionTitle aside={`${orders.length} open`}>All open orders</SectionTitle>
+        <Card>{orders.length ? <OrdersTable orders={orders} today={today} /> : <Empty>No open orders yet.</Empty>}</Card>
+      </div>
     </>
   );
 }
 
-function DeliveryCard({ title, date, orders }: { title: string; date: string; orders: Order[] }) {
+function DeliveryDay({ title, date, orders }: { title: string; date: string; orders: Order[] }) {
   return (
-    <Card className="p-4">
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium text-muted">Deliveries {title.toLowerCase()}</span>
-        <span className="text-xs text-muted">{fmtDate(date)}</span>
-      </div>
-      <span className="mt-2 block text-3xl font-semibold tabular-nums">{orders.length}</span>
-      {orders.length > 0 && (
-        <ul className="mt-3 space-y-1.5 border-t border-line pt-3 text-sm">
+    <section>
+      <SectionTitle aside={fmtDate(date)}>Deliver {title.toLowerCase()}</SectionTitle>
+      {orders.length === 0 ? (
+        <Card>
+          <Empty>Nothing due {title.toLowerCase()}.</Empty>
+        </Card>
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
           {orders.map((o) => (
-            <li key={o.id}>
-              <Link href={`/orders/${o.id}`} className="flex justify-between gap-2 hover:text-accent">
-                <span className="truncate">
-                  {o.clients?.name ?? "Unknown"} · {o.item}
-                </span>
-                <span className="shrink-0 tabular-nums text-muted">
-                  {fmtNum(o.quantity)} {o.unit}
-                </span>
-              </Link>
+            <li key={rowKey(o)} className="fresh">
+              <JobCard order={o} />
             </li>
           ))}
         </ul>
       )}
-    </Card>
+    </section>
+  );
+}
+
+/** A delivery as a job card: who, what, how much. */
+function JobCard({ order: o }: { order: Order }) {
+  return (
+    <Link
+      href={`/orders/${o.id}`}
+      className="group flex h-full flex-col rounded-xl border border-line bg-surface p-4 transition-colors duration-150 hover:border-accent/60 hover:bg-raised/50"
+    >
+      <span className="truncate text-sm text-muted">{o.clients?.name ?? "Unknown client"}</span>
+      <span className="mt-0.5 truncate text-[17px] font-semibold">
+        {o.item}
+        {o.spec && <span className="font-normal text-muted"> {o.spec}</span>}
+      </span>
+      <span className="mt-auto flex items-baseline justify-between gap-3 pt-4">
+        <span className="text-[26px] leading-none font-semibold tracking-tight">
+          {fmtNum(o.quantity)}
+          <span className="ml-1 text-sm font-normal text-muted">{o.unit}</span>
+        </span>
+        <span className="text-sm text-muted">{fmtRate(o.rate, o.unit)}</span>
+      </span>
+    </Link>
   );
 }
 
 function OrdersTable({ orders, today }: { orders: Order[]; today: string }) {
   const overdue = (o: Order) => o.status === "open" && !!o.delivery_date && o.delivery_date < today;
+  const dueLabel = (o: Order) =>
+    o.delivery_date === today ? "Today" : o.delivery_date === istDate(1) ? "Tomorrow" : fmtDate(o.delivery_date);
   return (
     <>
-      {/* Phones: one card per order */}
+      {/* Phones: one row per order */}
       <ul className="divide-y divide-line sm:hidden">
         {orders.map((o) => (
-          <li key={o.id}>
-            <Link href={`/orders/${o.id}`} className="block px-4 py-3 active:bg-line/40">
-              <div className="flex items-start justify-between gap-2">
+          <li key={rowKey(o)} className="fresh">
+            <Link href={`/orders/${o.id}`} className="block px-4 py-3.5 active:bg-raised">
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-medium">
-                    {o.item} {o.spec && <span className="font-normal text-muted">· {o.spec}</span>}
+                    {o.item} {o.spec && <span className="font-normal text-muted">{o.spec}</span>}
                   </p>
                   <p className="truncate text-sm text-muted">{o.clients?.name ?? "Unknown client"}</p>
                 </div>
-                <Badge status={overdue(o) ? "overdue" : o.status} />
+                <div className="text-right">
+                  <p className="font-semibold">
+                    {fmtNum(o.quantity)} <span className="text-sm font-normal text-muted">{o.unit}</span>
+                  </p>
+                  <p className="text-sm text-muted">{fmtRate(o.rate, o.unit)}</p>
+                </div>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
-                <span>
-                  {fmtNum(o.quantity)} {o.unit}
-                </span>
-                <span>{fmtRate(o.rate, o.unit)}</span>
-                <span className="text-muted">Due {fmtDate(o.delivery_date)}</span>
-              </div>
+              <p className={`mt-1.5 text-sm ${overdue(o) ? "text-was" : "text-muted"}`}>
+                {overdue(o) ? "Overdue, was due " : "Due "}
+                {dueLabel(o).replace(/^(Today|Tomorrow)$/, (d) => d.toLowerCase())}
+              </p>
             </Link>
           </li>
         ))}
@@ -118,40 +149,39 @@ function OrdersTable({ orders, today }: { orders: Order[]; today: string }) {
 
       {/* Tablets and up: table */}
       <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full text-sm">
+        <table className="w-full text-left text-[15px]">
           <thead>
-            <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-muted">
-              <th className="px-4 py-2.5 font-medium">Client</th>
-              <th className="px-3 py-2.5 font-medium">Item</th>
-              <th className="px-3 py-2.5 font-medium">Spec</th>
-              <th className="px-3 py-2.5 text-right font-medium">Qty</th>
-              <th className="px-3 py-2.5 font-medium">Unit</th>
-              <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-              <th className="px-3 py-2.5 font-medium">Delivery</th>
-              <th className="px-4 py-2.5 font-medium">Status</th>
+            <tr className="border-b border-line text-sm text-muted">
+              <th className="px-5 py-3 font-medium">Client</th>
+              <th className="px-3 py-3 font-medium">Item</th>
+              <th className="px-3 py-3 text-right font-medium">Quantity</th>
+              <th className="px-3 py-3 text-right font-medium">Rate</th>
+              <th className="px-3 py-3 font-medium">Delivery</th>
+              <th className="px-5 py-3 font-medium">
+                <span className="sr-only">Status</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
             {orders.map((o) => (
-              <tr key={o.id} className="group hover:bg-line/30">
-                <td className="px-4 py-2.5">
-                  <Link href={`/orders/${o.id}`} className="font-medium group-hover:text-accent">
+              <tr key={rowKey(o)} className="fresh group relative transition-colors duration-150 hover:bg-raised/60">
+                <td className="px-5 py-3">
+                  {/* The stretched link makes the whole row clickable. */}
+                  <Link href={`/orders/${o.id}`} className="font-medium after:absolute after:inset-0 group-hover:text-accent">
                     {o.clients?.name ?? "Unknown"}
                   </Link>
                 </td>
-                <td className="px-3 py-2.5">
-                  <Link href={`/orders/${o.id}`}>{o.item}</Link>
+                <td className="px-3 py-3">
+                  {o.item}
+                  {o.spec && <span className="ml-1.5 text-muted">{o.spec}</span>}
                 </td>
-                <td className="px-3 py-2.5 text-muted">{o.spec ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{fmtNum(o.quantity)}</td>
-                <td className="px-3 py-2.5 text-muted">{o.unit ?? "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{fmtRate(o.rate)}</td>
-                <td className={`px-3 py-2.5 whitespace-nowrap ${overdue(o) ? "text-red-600 dark:text-red-400" : ""}`}>
-                  {fmtDate(o.delivery_date)}
+                <td className="px-3 py-3 text-right whitespace-nowrap">
+                  <span className="font-medium">{fmtNum(o.quantity)}</span>
+                  <span className="ml-1 text-sm text-muted">{o.unit ?? ""}</span>
                 </td>
-                <td className="px-4 py-2.5">
-                  <Badge status={overdue(o) ? "overdue" : o.status} />
-                </td>
+                <td className="px-3 py-3 text-right whitespace-nowrap">{fmtRate(o.rate)}</td>
+                <td className={`px-3 py-3 whitespace-nowrap ${overdue(o) ? "text-was" : ""}`}>{dueLabel(o)}</td>
+                <td className="px-5 py-3 text-right">{overdue(o) && <Badge status="overdue" />}</td>
               </tr>
             ))}
           </tbody>

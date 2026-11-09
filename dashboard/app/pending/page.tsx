@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Badge, Card, Empty, PageTitle } from "@/components/ui";
-import { fieldLabel, fmtChangeValue, fmtTime } from "@/lib/format";
+import { Card, Empty, PageTitle } from "@/components/ui";
+import { fmtDate, fmtNum, fmtRate, fmtTime } from "@/lib/format";
+import { Highlight } from "@/lib/highlight";
 import { db, must } from "@/lib/supabase";
 import type { PendingConfirmation } from "@/lib/types";
 
@@ -20,39 +21,18 @@ export default async function PendingPage() {
 
   return (
     <>
-      <PageTitle sub="Items Recall wasn't sure about. The owner confirms them on WhatsApp; nothing is saved until then.">
-        Pending confirmations
+      <PageTitle sub="When Recall isn't sure, it asks you on WhatsApp instead of guessing. Nothing is saved until you tap an answer.">
+        Waiting for your answer
       </PageTitle>
       {items.length === 0 ? (
         <Card>
-          <Empty>All clear. Nothing waiting for confirmation.</Empty>
+          <Empty>All clear. Nothing is waiting for you.</Empty>
         </Card>
       ) : (
-        <ul className="space-y-3">
+        <ul className="grid gap-4 lg:grid-cols-2">
           {items.map((p) => (
-            <li key={p.id}>
-              <Card className="p-4">
-                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <span className="text-sm text-muted">{p.clients?.name ?? "Unknown client"}</span>
-                  <span className="text-xs text-muted">
-                    {fmtTime(p.created_at)}
-                    {p.call_id != null && (
-                      <>
-                        {" · "}
-                        <Link href={`/calls#call-${p.call_id}`} className="underline hover:text-ink">
-                          call #{p.call_id}
-                        </Link>
-                      </>
-                    )}
-                  </span>
-                </div>
-                <p className="mt-2 flex items-start gap-2 font-medium">
-                  <Badge status="pending" />
-                  <span>{p.question}</span>
-                </p>
-                <Extracted data={p.extracted_json} />
-                <Options options={p.options} />
-              </Card>
+            <li key={p.id} className="fresh">
+              <PendingCard p={p} />
             </li>
           ))}
         </ul>
@@ -61,43 +41,105 @@ export default async function PendingPage() {
   );
 }
 
-function scalar(v: unknown): string {
-  if (v === null || v === undefined || v === "") return "—";
-  return typeof v === "object" ? JSON.stringify(v) : String(v);
+interface ExtractedItem {
+  kind?: string;
+  item?: string | null;
+  order_ref?: string | null;
+  spec?: string | null;
+  quantity?: number | string | null;
+  unit?: string | null;
+  rate?: number | string | null;
+  delivery_date?: string | null;
+  evidence?: string | null;
 }
 
-function Extracted({ data }: { data: Record<string, unknown> | null }) {
-  if (!data || typeof data !== "object") return null;
-  const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
-  if (!entries.length) return null;
+/** extracted_json is {item, clip, decision} from the pipeline; older rows may be the bare item. */
+function extractedItem(data: Record<string, unknown> | null): ExtractedItem {
+  if (!data || typeof data !== "object") return {};
+  const inner = data.item;
+  return (inner && typeof inner === "object" ? inner : data) as ExtractedItem;
+}
+
+function PendingCard({ p }: { p: PendingConfirmation }) {
+  const it = extractedItem(p.extracted_json);
+  // The WhatsApp message puts the quote on its own line after the question; show it separately.
+  const question = p.question.split("\n")[0];
+  const facts: [string, string][] = [];
+  if (it.item || it.order_ref) facts.push(["Item", [it.item ?? it.order_ref, it.spec].filter(Boolean).join(" ")]);
+  if (it.quantity != null) facts.push(["Quantity", `${fmtNum(it.quantity)} ${it.unit ?? ""}`.trim()]);
+  if (it.rate != null) facts.push(["Rate", fmtRate(it.rate, it.unit)]);
+  if (it.delivery_date) facts.push(["Delivery", fmtDate(it.delivery_date)]);
+
   return (
-    <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg bg-line/40 p-3 text-sm">
-      {entries.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-muted">{fieldLabel(k)}</dt>
-          <dd className="break-words font-medium">{fmtChangeValue(k, scalar(v))}</dd>
-        </div>
-      ))}
-    </dl>
+    <Card className="flex h-full flex-col border-accent/35">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pt-4 sm:px-5">
+        <p className="font-medium">{p.clients?.name ?? "Unknown client"}</p>
+        <p className="text-sm text-muted">
+          {fmtTime(p.created_at)}
+          {p.call_id != null && (
+            <>
+              {", "}
+              <Link href={`/calls#call-${p.call_id}`} className="rounded underline decoration-line underline-offset-4 hover:text-ink">
+                call #{p.call_id}
+              </Link>
+            </>
+          )}
+        </p>
+      </div>
+
+      <div className="flex-1 px-4 pt-3 pb-4 sm:px-5">
+        <h2 className="text-[17px] leading-snug font-semibold">{question}</h2>
+        {it.evidence && (
+          <blockquote lang="hi" className="mt-3 border-l-2 border-accent/60 pl-4 text-[17px] text-ink/90">
+            &ldquo;<Highlight text={it.evidence} />&rdquo;
+          </blockquote>
+        )}
+        {facts.length > 0 && (
+          <dl className="mt-4 flex flex-wrap gap-2">
+            {facts.map(([k, v]) => (
+              <div key={k} className="rounded-lg border border-line px-3 py-1.5">
+                <dt className="text-xs text-muted">{k}</dt>
+                <dd className="font-medium">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
+
+      <div className="border-t border-line bg-raised/50 px-4 py-3.5 sm:px-5">
+        <p className="mb-2.5 text-sm text-muted">Your options on WhatsApp</p>
+        <Options options={p.options} />
+      </div>
+    </Card>
   );
 }
 
-/** options holds candidate order ids for the owner's buttons. */
+/** The owner's WhatsApp buttons: candidate order ids, "new", and always a "no". */
 function Options({ options }: { options: unknown }) {
-  const ids = Array.isArray(options)
-    ? options
-        .map((o) => (typeof o === "object" && o !== null ? (o as Record<string, unknown>).order_id ?? (o as Record<string, unknown>).id : o))
-        .filter((o): o is number | string => typeof o === "number" || (typeof o === "string" && /^\d+$/.test(o)))
-    : [];
-  if (!ids.length) return null;
+  const opts = (Array.isArray(options) ? options : [])
+    .map((o) => (typeof o === "object" && o !== null ? ((o as Record<string, unknown>).order_id ?? (o as Record<string, unknown>).id) : o))
+    .filter((o): o is number | string => typeof o === "number" || typeof o === "string")
+    .slice(0, 2);
+  const btn = "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium";
   return (
-    <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-      <span className="text-muted">Candidates:</span>
-      {ids.map((id) => (
-        <Link key={id} href={`/orders/${id}`} className="rounded-md border border-line px-2 py-0.5 hover:border-accent hover:text-accent">
-          #{id}
-        </Link>
-      ))}
-    </p>
+    <div className="flex flex-wrap gap-2">
+      {opts.map((o) =>
+        String(o) === "new" ? (
+          <span key="new" className={`${btn} border-line`}>
+            Naya order
+          </span>
+        ) : /^\d+$/.test(String(o)) ? (
+          <Link
+            key={o}
+            href={`/orders/${o}`}
+            className={`${btn} border-line transition-colors duration-150 hover:border-accent hover:text-accent`}
+            title={`Open order #${o}`}
+          >
+            Order #{o}
+          </Link>
+        ) : null,
+      )}
+      <span className={`${btn} border-line text-muted`}>Nahi</span>
+    </div>
   );
 }

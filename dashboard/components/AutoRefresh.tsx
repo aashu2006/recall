@@ -21,8 +21,16 @@ export default function AutoRefresh() {
   }, [router]);
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted" title="Refreshes every 10 seconds">
-      <span className={`h-2 w-2 rounded-full ${paused ? "bg-amber-500" : "bg-emerald-500 animate-pulse"}`} />
+    <span
+      className="flex items-center gap-2 rounded-full border border-line px-2.5 py-1 text-xs text-muted"
+      title={paused ? "Updates pause while audio plays" : "Updates every 10 seconds"}
+    >
+      <span className="relative flex h-2 w-2">
+        {!paused && (
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-now opacity-50 motion-reduce:hidden" />
+        )}
+        <span className={`relative inline-flex h-2 w-2 rounded-full ${paused ? "bg-accent" : "bg-now"}`} />
+      </span>
       {paused ? "Paused" : "Live"}
     </span>
   );

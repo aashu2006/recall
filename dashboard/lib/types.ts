@@ -45,7 +45,14 @@ export interface OrderChange {
   clip_end: number | null;
   confidence: number | null;
   created_at: string;
-  calls: Pick<Call, "audio_url"> | null;
+  calls: (Pick<Call, "audio_url"> & { segments?: Segment[] | null }) | null;
+}
+
+/** calls.segments: seconds from the start of the audio. */
+export interface Segment {
+  start: number;
+  end: number;
+  text: string;
 }
 
 export interface PendingConfirmation {
