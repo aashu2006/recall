@@ -26,3 +26,9 @@ def test_main_runs_pipeline_and_prints(monkeypatch, capsys):
     assert seen["t"] == datetime.fromisoformat("2026-11-09T10:30:00+05:30")
     out = capsys.readouterr().out
     assert '"call_id": 3' in out and "client gets ---\nNamaste" in out and "Kaunsa order?" in out
+
+
+def test_from_phone_flag_and_seed_default():
+    assert run_pipeline.parse_args(["note.ogg"]).from_phone == "919800000001"  # Sharma Steels in seed.py
+    assert run_pipeline.parse_args(["note.ogg", "--from-phone", "919800000002"]).from_phone == "919800000002"
+    assert run_pipeline.parse_args(["note.ogg", "--phone", "919800000003"]).from_phone == "919800000003"

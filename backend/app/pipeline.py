@@ -87,12 +87,12 @@ def handle_voice_note(
                                        confidence=decision.confidence)
             out.order_ids.append(order_id)
             saved.append((item, None))
-        elif decision.action == "update" and fields:
+        elif decision.action == "update" and fields and decision.order_id in orders_by_id:
             db.update_order(decision.order_id, fields, call_id=call_id, clip=clip,
                             confidence=decision.confidence)
             out.order_ids.append(decision.order_id)
             saved.append((item, orders_by_id[decision.order_id]))
-        else:
+        else:  # unsure, or an update with no open order to apply it to: ask the owner, never drop
             question, options = owner_question(client["name"], item, decision, orders_by_id)
             pending_id = db.insert_pending(
                 call_id=call_id, client_id=client["id"], question=question, options=options,

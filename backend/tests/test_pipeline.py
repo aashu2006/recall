@@ -161,6 +161,44 @@ def test_owner_rejects_and_invalid_choices(db, note, world):
     assert "nahi mila" in pipeline.resolve_pending(42, "no", db=db)
 
 
+def test_update_with_no_open_orders_goes_to_owner(db, note, world):
+    """Client has no open orders at all: the update must wait for the owner, not vanish."""
+    world(TRANSCRIPT_KEYTERMS, EXTRACT_KEYTERMS)
+    db.orders.clear()
+
+    res = pipeline.handle_voice_note(note, "919800000001", "wamid.3", CALL_TIME, db=db)
+
+    assert res.order_ids == [1]  # only the sheet order is created
+    assert db.get_order(1)["item"] == "MS sheet"
+    [p] = db.pending
+    assert res.pending_ids == [p["id"]] and p["options"] == ["new"]
+    assert p["extracted_json"]["item"]["kind"] == "update"
+    assert p["extracted_json"]["item"]["quantity"] == 300
+    assert "order nahi mila" in res.pending[0].question
+    assert "1 baat owner se confirm" in res.summary
+
+
+def test_update_matching_no_open_order_goes_to_owner(db, note, world, monkeypatch):
+    """Client has open orders but none fits the update (LLM returns no order and no candidates)."""
+    world(TRANSCRIPT_KEYTERMS, EXTRACT_KEYTERMS)
+    extraction_llm = extract.llm.complete_json
+
+    def no_match(system, user, schema):
+        if schema is extract.Extraction:
+            return extraction_llm(system, user, schema)
+        return LlmMatch(order_id=None, candidate_ids=[], confidence=0.9)
+
+    monkeypatch.setattr(extract.llm, "complete_json", no_match)
+
+    res = pipeline.handle_voice_note(note, "919800000001", "wamid.4", CALL_TIME, db=db)
+
+    assert db.get_order(12)["quantity"] == 200 and not [c for c in db.changes if c["order_id"] == 12]
+    [p] = db.pending
+    assert p["options"] == ["new"] and p["extracted_json"]["item"]["kind"] == "update"
+    assert "order nahi mila" in res.pending[0].question
+    assert pipeline.resolve_pending(p["id"], "new", db=db).startswith("✅ Naya order")
+
+
 def test_failed_apply_reopens_pending(db, note, world, monkeypatch):
     world(TRANSCRIPT_NO_KEYTERMS, EXTRACT_NO_KEYTERMS)
     pipeline.handle_voice_note(note, "919800000001", "wamid.2", CALL_TIME, db=db)
