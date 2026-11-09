@@ -158,18 +158,24 @@ class Db:
         self.sb.table("pending_confirmations").update({"status": "pending", "resolved_at": None}) \
             .eq("id", pending_id).execute()
 
-    # whatsapp send log (daily cap)
+    # whatsapp send log: every outbound attempt (migration 004). Only status = 'sent' rows
+    # count for the daily cap.
     def sends_since(self, since: datetime) -> int:
         res = (
-            self.sb.table("wa_sends").select("id", count="exact")
+            self.sb.table("wa_sends").select("id", count="exact").eq("status", "sent")
             .gte("created_at", since.isoformat()).limit(1).execute()
         )
         return res.count or 0
 
-    def record_send(self, to_phone: str, kind: str, wa_message_id: str | None = None) -> None:
-        self.sb.table("wa_sends").insert(
-            {"to_phone": to_phone, "kind": kind, "wa_message_id": wa_message_id}
-        ).execute()
+    def record_send(self, to_phone: str, kind: str, *, msg_type: str, body: str | None = None,
+                    media_path: str | None = None, status: str = "sent", error: str | None = None,
+                    wa_message_id: str | None = None) -> None:
+        """kind: client_summary, owner_question, owner_reply, owner_alert, briefing.
+        status: sent, failed (with error) or preview."""
+        self.sb.table("wa_sends").insert({
+            "to_phone": to_phone, "kind": kind, "msg_type": msg_type, "body": body,
+            "media_path": media_path, "status": status, "error": error, "wa_message_id": wa_message_id,
+        }).execute()
 
     # storage
     def upload(self, object_path: str, local_path: str | Path, content_type: str) -> str:

@@ -126,8 +126,10 @@ class FakeDb:
 
     # whatsapp send log
     def sends_since(self, since: datetime) -> int:
-        return sum(1 for s in self.sends if s["created_at"] >= since)
+        return sum(1 for s in self.sends if s["status"] == "sent" and s["created_at"] >= since)
 
-    def record_send(self, to_phone, kind, wa_message_id=None):
-        self.sends.append({"to_phone": to_phone, "kind": kind, "wa_message_id": wa_message_id,
-                           "created_at": datetime.now().astimezone()})
+    def record_send(self, to_phone, kind, *, msg_type, body=None, media_path=None, status="sent",
+                    error=None, wa_message_id=None):
+        self.sends.append({"to_phone": to_phone, "kind": kind, "msg_type": msg_type, "body": body,
+                           "media_path": media_path, "status": status, "error": error,
+                           "wa_message_id": wa_message_id, "created_at": datetime.now().astimezone()})

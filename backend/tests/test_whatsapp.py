@@ -120,7 +120,7 @@ def test_webhook_rejects_when_secret_unset(client, monkeypatch):
 # client
 
 def test_send_text_and_log(wa, graph, db):
-    wa_id = wa.send_text("+91 98000 00001", "hello")
+    wa_id = wa.send_text("+91 98000 00001", "hello", kind="client_summary")
 
     assert wa_id == "wamid.out1"
     req = graph.requests[0]
@@ -128,35 +128,67 @@ def test_send_text_and_log(wa, graph, db):
     assert req.headers["Authorization"] == "Bearer tok"
     assert json.loads(req.content) == {"messaging_product": "whatsapp", "recipient_type": "individual",
                                        "to": CLIENT, "type": "text", "text": {"body": "hello"}}
-    assert db.sends[0]["kind"] == "text" and db.sends[0]["wa_message_id"] == "wamid.out1"
+    [row] = db.sends
+    assert {k: row[k] for k in ("to_phone", "kind", "msg_type", "body", "status", "error", "wa_message_id")} == {
+        "to_phone": CLIENT, "kind": "client_summary", "msg_type": "text", "body": "hello", "status": "sent",
+        "error": None, "wa_message_id": "wamid.out1"}
 
 
-def test_daily_cap_blocks_sends(wa, graph, db):
+def test_failed_send_is_logged_and_does_not_raise(wa, graph, db):
+    graph.reject_to.add(CLIENT)
+
+    assert wa.send_text(CLIENT, "Namaste", kind="client_summary") is None
+
+    [row] = db.sends
+    assert row["status"] == "failed" and row["body"] == "Namaste" and row["wa_message_id"] is None
+    assert "Graph API 400" in row["error"] and "not in allowed list" in row["error"]
+
+
+def test_failed_sends_do_not_use_up_the_cap(wa, graph, db):
+    graph.reject_to.add(CLIENT)
+    for _ in range(6):
+        wa.send_text(CLIENT, "x", kind="client_summary")
+
+    assert wa.send_text(OWNER, "still goes out", kind="owner_reply") == "wamid.out7"
+    assert [r["status"] for r in db.sends] == ["failed"] * 6 + ["sent"]
+
+
+def test_daily_cap_blocks_sends_and_logs_them(wa, graph, db):
     for _ in range(5):
-        db.record_send(CLIENT, "text")
+        db.record_send(CLIENT, "client_summary", msg_type="text")
 
-    assert wa.send_text(CLIENT, "hi") is None
-    assert wa.send_audio(CLIENT, __file__) is None
+    assert wa.send_text(CLIENT, "hi", kind="client_summary") is None
+    assert wa.send_audio(OWNER, __file__, kind="briefing", media_path="briefings/b.ogg") is None
     assert graph.requests == []
+    blocked = db.sends[5:]
+    assert [(r["kind"], r["status"], r["media_path"]) for r in blocked] == [
+        ("client_summary", "failed", None), ("briefing", "failed", "briefings/b.ogg")]
+    assert all("WA_DAILY_SEND_CAP" in r["error"] for r in blocked)
 
 
-def test_send_buttons_truncates_titles(wa, graph):
-    wa.send_buttons(OWNER, "Kaunsa order?", [("a", "x" * 30), ("b", "B"), ("c", "C"), ("d", "D")])
+def test_send_buttons_truncates_titles(wa, graph, db):
+    wa.send_buttons(OWNER, "Kaunsa order?", [("a", "x" * 30), ("b", "B"), ("c", "C"), ("d", "D")],
+                    kind="owner_question")
 
     action = graph.messages()[0]["interactive"]["action"]
     assert [b["reply"]["id"] for b in action["buttons"]] == ["a", "b", "c"]
     assert len(action["buttons"][0]["reply"]["title"]) == 20
+    assert db.sends[0]["msg_type"] == "buttons"
+    assert db.sends[0]["body"] == "Kaunsa order?\n[" + "x" * 20 + "]  [B]  [C]"
 
 
-def test_send_audio_uploads_then_sends(wa, graph, tmp_path):
+def test_send_audio_uploads_then_sends(wa, graph, db, tmp_path):
     ogg = tmp_path / "b.ogg"
     ogg.write_bytes(b"OggS")
 
-    wa.send_audio(OWNER, ogg)
+    wa.send_audio(OWNER, ogg, kind="briefing", media_path="briefings/2026-11-09_090000.ogg", body="Good morning")
 
     upload, send = graph.requests
     assert str(upload.url).endswith("/PNID/media") and b'name="type"\r\n\r\naudio/ogg' in upload.content
     assert json.loads(send.content)["audio"] == {"id": "media-up-1"}
+    [row] = db.sends
+    assert (row["kind"], row["msg_type"], row["media_path"], row["body"], row["status"]) == (
+        "briefing", "audio", "briefings/2026-11-09_090000.ogg", "Good morning", "sent")
 
 
 def test_download_media(wa, tmp_path):
@@ -209,6 +241,7 @@ def test_voice_note_flow(wa, graph, db, fake_pipeline):
     assert to_owner["to"] == OWNER
     buttons = [(b["reply"]["id"], b["reply"]["title"]) for b in to_owner["interactive"]["action"]["buttons"]]
     assert buttons == [("pc:4:12", "Order #12"), ("pc:4:15", "Order #15"), ("pc:4:no", "❌ Nahi")]
+    assert [(r["kind"], r["status"]) for r in db.sends] == [("client_summary", "sent"), ("owner_question", "sent")]
 
 
 def test_failed_client_summary_still_sends_owner_buttons(wa, graph, db, fake_pipeline):
@@ -219,6 +252,7 @@ def test_failed_client_summary_still_sends_owner_buttons(wa, graph, db, fake_pip
     to_client, to_owner = graph.messages()
     assert to_client["to"] == CLIENT
     assert to_owner["to"] == OWNER and to_owner["type"] == "interactive"
+    assert [(r["kind"], r["status"]) for r in db.sends] == [("client_summary", "failed"), ("owner_question", "sent")]
 
 
 def test_repeated_webhook_is_processed_once(wa, db, fake_pipeline):
@@ -243,6 +277,7 @@ def test_pipeline_failure_alerts_owner(wa, graph, db, monkeypatch):
 
     [msg] = graph.messages()
     assert msg["to"] == OWNER and "process nahi hua" in msg["text"]["body"]
+    assert db.sends[0]["kind"] == "owner_alert"
 
 
 def test_owner_button_resolves_pending(wa, graph, db, monkeypatch):
@@ -254,6 +289,7 @@ def test_owner_button_resolves_pending(wa, graph, db, monkeypatch):
 
     assert seen == [(4, "12")]
     assert graph.messages()[0]["text"]["body"] == "✅ Order #12 update ho gaya"
+    assert db.sends[0]["kind"] == "owner_reply"
 
 
 def test_button_from_non_owner_is_ignored(wa, graph, db, monkeypatch):

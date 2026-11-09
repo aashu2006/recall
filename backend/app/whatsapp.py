@@ -1,8 +1,9 @@
 """WhatsApp Cloud API: send text, buttons and voice notes, download inbound media, and
 process webhook payloads (runs in the BackgroundTask started by main.py).
 
-Every outbound send counts against the hard daily cap WA_DAILY_SEND_CAP (Asia/Kolkata
-day), logged in the wa_sends table so restarts don't reset it.
+Every outbound attempt is logged in wa_sends (to, kind, body, media path, sent / failed +
+error), so replies can be read without WhatsApp. Successful sends count against the hard
+daily cap WA_DAILY_SEND_CAP (Asia/Kolkata day); the log survives restarts.
 
 Owner buttons carry ids like "pc:<pending_id>:<choice>", choice = order id, "new" or "no".
 """
@@ -62,47 +63,73 @@ class WhatsApp:
         path.write_bytes(data)
         return path
 
-    # outbound
-    def send_text(self, to: str, text: str) -> str | None:
-        return self._send(to, "text", {"type": "text", "text": {"body": text[:4096]}})
+    # outbound. Every attempt is logged in wa_sends (sent / failed with the error), and a
+    # send never raises, so one failed message can't stop the ones after it.
+    def send_text(self, to: str, text: str, *, kind: str) -> str | None:
+        text = text[:4096]
+        return self._send(to, kind, "text", {"type": "text", "text": {"body": text}}, body=text)
 
-    def send_buttons(self, to: str, body: str, buttons: list[tuple[str, str]]) -> str | None:
+    def send_buttons(self, to: str, body: str, buttons: list[tuple[str, str]], *, kind: str) -> str | None:
         """buttons: up to 3 (id, title). Titles are cut to WhatsApp's 20 chars."""
-        return self._send(to, "buttons", {
+        body = body[:BODY_MAX]
+        buttons = [(bid, title[:BUTTON_TITLE_MAX]) for bid, title in buttons[:3]]
+        message = {
             "type": "interactive",
             "interactive": {
                 "type": "button",
-                "body": {"text": body[:BODY_MAX]},
-                "action": {"buttons": [
-                    {"type": "reply", "reply": {"id": bid, "title": title[:BUTTON_TITLE_MAX]}}
-                    for bid, title in buttons[:3]
-                ]},
+                "body": {"text": body},
+                "action": {"buttons": [{"type": "reply", "reply": {"id": bid, "title": title}}
+                                       for bid, title in buttons]},
             },
-        })
+        }
+        logged = body + "\n" + "  ".join(f"[{title}]" for _, title in buttons)
+        return self._send(to, kind, "buttons", message, body=logged)
 
-    def send_audio(self, to: str, ogg_path: str | Path) -> str | None:
-        """Upload an OGG/Opus file and send it as a voice note."""
-        if self._capped():
-            return None
-        r = self.http.post(
-            f"{self.base}/{self.settings.wa_phone_number_id}/media", headers=self.auth,
-            data={"messaging_product": "whatsapp", "type": "audio/ogg"},
-            files={"file": (Path(ogg_path).name, Path(ogg_path).read_bytes(), "audio/ogg")},
-        )
-        media_id = self._check(r).json()["id"]
-        return self._send(to, "audio", {"type": "audio", "audio": {"id": media_id}})
+    def send_audio(self, to: str, ogg_path: str | Path, *, kind: str, media_path: str | None = None,
+                   body: str | None = None) -> str | None:
+        """Upload an OGG/Opus file and send it as a voice note. media_path: where the same
+        audio is kept in the audio bucket (for the log); body: its text, if any."""
+        def upload() -> dict:
+            r = self.http.post(
+                f"{self.base}/{self.settings.wa_phone_number_id}/media", headers=self.auth,
+                data={"messaging_product": "whatsapp", "type": "audio/ogg"},
+                files={"file": (Path(ogg_path).name, Path(ogg_path).read_bytes(), "audio/ogg")},
+            )
+            return {"type": "audio", "audio": {"id": self._check(r).json()["id"]}}
 
-    def _send(self, to: str, kind: str, message: dict) -> str | None:
-        if self._capped():
-            return None
+        return self._send(to, kind, "audio", upload, body=body, media_path=media_path)
+
+    def _send(self, to: str, kind: str, msg_type: str, message, *, body: str | None = None,
+              media_path: str | None = None) -> str | None:
+        """message: the Cloud API message dict, or a callable that builds it (audio upload).
+        Returns the WhatsApp message id, or None if the cap blocked it or it failed."""
         to = normalize_phone(to)
-        r = self.http.post(
-            f"{self.base}/{self.settings.wa_phone_number_id}/messages", headers=self.auth,
-            json={"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, **message},
-        )
-        wa_id = (self._check(r).json().get("messages") or [{}])[0].get("id")
-        self.db.record_send(to, kind, wa_id)
+        entry = {"kind": kind, "msg_type": msg_type, "body": body, "media_path": media_path}
+        if self._capped():
+            self._record(to, entry, status="failed",
+                         error=f"WA_DAILY_SEND_CAP reached ({self.settings.wa_daily_send_cap} a day)")
+            return None
+        try:
+            if callable(message):
+                message = message()
+            r = self.http.post(
+                f"{self.base}/{self.settings.wa_phone_number_id}/messages", headers=self.auth,
+                json={"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, **message},
+            )
+            wa_id = (self._check(r).json().get("messages") or [{}])[0].get("id")
+        except Exception as e:
+            log.warning("WhatsApp %s %s to %s failed: %s", kind, msg_type, to, e)
+            self._record(to, entry, status="failed", error=str(e)[:1000])
+            return None
+        self._record(to, entry, status="sent", wa_message_id=wa_id)
         return wa_id
+
+    def _record(self, to: str, entry: dict, **result) -> None:
+        try:
+            self.db.record_send(to, entry["kind"], msg_type=entry["msg_type"], body=entry["body"],
+                                media_path=entry["media_path"], **result)
+        except Exception:
+            log.exception("Could not log WhatsApp %s to %s in wa_sends", entry["kind"], to)
 
     def _capped(self) -> bool:
         today = datetime.now(IST).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -168,21 +195,19 @@ def _handle_voice(message: dict, sender_name: str | None, wa: WhatsApp, db: Db) 
         except Exception:
             owner = wa.settings.owner_wa_number
             if owner:
-                wa.send_text(owner, f"⚠️ {sender_name or sender} ka voice note process nahi hua. Logs dekhein.")
+                wa.send_text(owner, f"⚠️ {sender_name or sender} ka voice note process nahi hua. Logs dekhein.",
+                             kind="owner_alert")
             raise
     if result.duplicate:
         return
-    try:
-        wa.send_text(sender, result.summary)
-    except Exception:  # e.g. sender not on the test number's allowed list; owner still gets the buttons
-        log.exception("Summary to %s failed", sender)
+    wa.send_text(sender, result.summary, kind="client_summary")  # logged even if it fails
     owner = wa.settings.owner_wa_number
     if not owner:
         if result.pending:
             log.warning("OWNER_WA_NUMBER not set, %d pending items not sent", len(result.pending))
         return
     for p in result.pending:
-        wa.send_buttons(owner, p.question, owner_buttons(p))
+        wa.send_buttons(owner, p.question, owner_buttons(p), kind="owner_question")
 
 
 def owner_buttons(p: pipeline.Pending) -> list[tuple[str, str]]:
@@ -204,4 +229,4 @@ def _handle_button(message: dict, wa: WhatsApp, db: Db) -> None:
     if len(parts) != 3 or parts[0] != "pc" or not parts[1].isdigit():
         log.warning("Unknown button id %r", reply.get("id"))
         return
-    wa.send_text(owner, pipeline.resolve_pending(int(parts[1]), parts[2], db=db))
+    wa.send_text(owner, pipeline.resolve_pending(int(parts[1]), parts[2], db=db), kind="owner_reply")

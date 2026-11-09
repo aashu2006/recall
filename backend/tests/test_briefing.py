@@ -71,12 +71,12 @@ class FakeWa:
         self.settings = Settings(_env_file=None, owner_wa_number=owner, gnani_api_key="k")
         self.sent = []
 
-    def send_audio(self, to, path):
-        self.sent.append(("audio", to, path.read_bytes()))
+    def send_audio(self, to, path, *, kind, media_path=None, body=None):
+        self.sent.append(("audio", to, path.read_bytes(), kind, media_path, body))
         return "wamid.a"
 
-    def send_text(self, to, text):
-        self.sent.append(("text", to, text))
+    def send_text(self, to, text, *, kind):
+        self.sent.append(("text", to, text, kind))
         return "wamid.t"
 
 
@@ -88,7 +88,20 @@ def test_send_voice_note(db, monkeypatch):
     out = briefing.send(db, wa, TODAY)
 
     assert out["sent"] == "audio" and seen[0].startswith("Good morning.")
-    assert wa.sent == [("audio", "919900000000", b"OggS")]
+    [(kind, to, audio, label, media_path, body)] = wa.sent
+    assert (kind, to, audio, label) == ("audio", "919900000000", b"OggS", "briefing")
+    assert media_path == out["path"] and media_path.startswith("briefings/") and media_path.endswith(".ogg")
+    assert db.uploads == [media_path] and body == out["text"] and "Aaj 2 delivery" in body
+
+
+def test_send_still_goes_out_if_storage_fails(db, monkeypatch):
+    monkeypatch.setattr(briefing.tts, "synthesize", lambda text, settings: b"OggS")
+    monkeypatch.setattr(db, "upload", lambda *a: 1 / 0)
+    wa = FakeWa()
+
+    out = briefing.send(db, wa, TODAY)
+
+    assert out["sent"] == "audio" and out["path"] is None and wa.sent[0][4] is None
 
 
 def test_send_falls_back_to_text(db, monkeypatch):
@@ -98,6 +111,34 @@ def test_send_falls_back_to_text(db, monkeypatch):
     out = briefing.send(db, wa, TODAY)
 
     assert out["sent"] == "text" and wa.sent[0][0] == "text" and "Aaj 2 delivery" in wa.sent[0][2]
+    assert wa.sent[0][3] == "briefing"
+
+
+def test_preview_stores_and_logs_without_sending(db, monkeypatch):
+    monkeypatch.setattr(briefing.tts, "synthesize", lambda text, settings: b"OggS preview")
+    settings = Settings(_env_file=None, owner_wa_number="+91 99000 00000", gnani_api_key="k")
+
+    out = briefing.preview(db, settings, TODAY)
+
+    assert out["path"].startswith("briefings/") and out["path"].endswith(".ogg") and db.uploads == [out["path"]]
+    assert "Aaj 2 delivery" in out["text"]
+    [row] = db.sends
+    assert {k: row[k] for k in ("to_phone", "kind", "msg_type", "body", "media_path", "status")} == {
+        "to_phone": "919900000000", "kind": "briefing", "msg_type": "audio", "body": out["text"],
+        "media_path": out["path"], "status": "preview"}
+    assert db.sends_since(row["created_at"]) == 0  # a preview doesn't count for the send cap
+
+
+def test_preview_logs_timbre_failure(db, monkeypatch):
+    def boom(text, settings):
+        raise tts.TtsError("403 FORBIDDEN")
+
+    monkeypatch.setattr(briefing.tts, "synthesize", boom)
+
+    out = briefing.preview(db, Settings(_env_file=None, owner_wa_number="919900000000"), TODAY)
+
+    assert out["path"] is None and "Timbre failed" in out["error"] and db.uploads == []
+    assert db.sends[0]["status"] == "failed" and "403" in db.sends[0]["error"]
 
 
 def test_send_needs_owner(db):

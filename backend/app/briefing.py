@@ -12,7 +12,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from app import tts
-from app.db import Db
+from app.db import Db, normalize_phone
 from app.extract import IST
 
 log = logging.getLogger(__name__)
@@ -60,7 +60,8 @@ def build(db: Db, today: date | None = None) -> Briefing:
 
 
 def send(db: Db, wa, today: date | None = None) -> dict:
-    """Build the briefing and send it to OWNER_WA_NUMBER as a voice note (text if TTS fails)."""
+    """Build the briefing and send it to OWNER_WA_NUMBER as a voice note (text if TTS fails).
+    The audio is also kept in the bucket under briefings/; wa_sends logs the attempt."""
     owner = wa.settings.owner_wa_number
     if not owner:
         raise RuntimeError("OWNER_WA_NUMBER is not set")
@@ -69,11 +70,51 @@ def send(db: Db, wa, today: date | None = None) -> dict:
         audio = tts.synthesize(b.spoken, settings=wa.settings)
     except Exception:
         log.exception("Timbre failed, sending briefing as text")
-        return {"text": b.text, "sent": "text" if wa.send_text(owner, b.text) else None}
+        return {"text": b.text, "sent": "text" if wa.send_text(owner, b.text, kind="briefing") else None}
     with tempfile.TemporaryDirectory(prefix="recall-brief-") as tmp:
         path = Path(tmp) / "briefing.ogg"
         path.write_bytes(audio)
-        return {"text": b.text, "sent": "audio" if wa.send_audio(owner, path) else None}
+        media_path = _store(db, path)
+        sent = wa.send_audio(owner, path, kind="briefing", media_path=media_path, body=b.text)
+        return {"text": b.text, "path": media_path, "sent": "audio" if sent else None}
+
+
+def preview(db: Db, settings, today: date | None = None) -> dict:
+    """Build the briefing, voice it with Timbre and store it under briefings/ without sending
+    it on WhatsApp. Logged in wa_sends with status preview (or failed if Timbre fails)."""
+    b = build(db, today)
+    owner = normalize_phone(settings.owner_wa_number)
+    try:
+        audio = tts.synthesize(b.spoken, settings=settings)
+    except Exception as e:
+        log.exception("Timbre failed for the briefing preview")
+        db.record_send(owner, "briefing", msg_type="audio", body=b.text, status="failed",
+                       error=f"Timbre: {e}"[:1000])
+        return {"text": b.text, "path": None, "error": f"Timbre failed: {e}"[:300]}
+    with tempfile.TemporaryDirectory(prefix="recall-brief-") as tmp:
+        path = Path(tmp) / "briefing.ogg"
+        path.write_bytes(audio)
+        try:
+            media_path = db.upload(_object_path(), path, "audio/ogg")
+        except Exception as e:
+            log.exception("Could not store the briefing preview")
+            db.record_send(owner, "briefing", msg_type="audio", body=b.text, status="failed",
+                           error=f"Storage: {e}"[:1000])
+            return {"text": b.text, "path": None, "error": f"Storage upload failed: {e}"[:300]}
+    db.record_send(owner, "briefing", msg_type="audio", body=b.text, media_path=media_path, status="preview")
+    return {"text": b.text, "path": media_path}
+
+
+def _object_path() -> str:
+    return f"briefings/{datetime.now(IST):%Y-%m-%d_%H%M%S}.ogg"
+
+
+def _store(db: Db, path: Path) -> str | None:
+    try:
+        return db.upload(_object_path(), path, "audio/ogg")
+    except Exception:
+        log.exception("Could not store the briefing audio, sending it anyway")
+        return None
 
 
 def _line(o: dict, *, spoken: bool) -> str:

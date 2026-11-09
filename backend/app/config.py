@@ -48,8 +48,10 @@ class Settings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     llm_timeout: float = 30.0
 
-    # Bearer token for POST /briefing/send (any scheduler can call it)
+    # Bearer token for POST /briefing/send, /briefing/preview and /pending/{id}/resolve
     cron_secret: str = ""
+    # Browser origins allowed to call the API (local dashboard). JSON list in env.
+    cors_origins: list[str] = ["http://localhost:3000"]
 
     # Supabase
     supabase_url: str = ""

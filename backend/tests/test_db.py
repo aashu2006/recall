@@ -100,3 +100,23 @@ def test_file_sha256(tmp_path):
 
 def test_normalize_phone():
     assert db.normalize_phone("+91 98000-00001") == "919800000001"
+
+
+def test_record_send_logs_every_column(sb):
+    db.Db(sb).record_send("919900000000", "briefing", msg_type="audio", body="Good morning",
+                          media_path="briefings/x.ogg", status="failed", error="Graph API 400")
+
+    sb.table.assert_called_with("wa_sends")
+    sb.table.return_value.insert.assert_called_once_with({
+        "to_phone": "919900000000", "kind": "briefing", "msg_type": "audio", "body": "Good morning",
+        "media_path": "briefings/x.ogg", "status": "failed", "error": "Graph API 400", "wa_message_id": None})
+
+
+def test_send_cap_counts_only_sent_rows(sb):
+    from datetime import datetime, timezone
+
+    sb.table.return_value.select.return_value.eq.return_value.gte.return_value.limit.return_value \
+        .execute.return_value.count = 3
+
+    assert db.Db(sb).sends_since(datetime(2026, 11, 9, tzinfo=timezone.utc)) == 3
+    sb.table.return_value.select.return_value.eq.assert_called_once_with("status", "sent")
