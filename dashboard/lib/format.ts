@@ -39,6 +39,15 @@ export function fmtRate(n: number | string | null | undefined, unit?: string | n
   return `₹${fmtNum(n)}${unit ? `/${unit}` : ""}`;
 }
 
+/** "just now", "2 min ago", "3 h ago", else the date and time. */
+export function fmtAgo(ts: string, now = Date.now()): string {
+  const mins = Math.floor((now - new Date(ts).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 24 * 60) return `${Math.floor(mins / 60)} h ago`;
+  return fmtTime(ts);
+}
+
 /** "0:42" from seconds. */
 export function fmtSecs(s: number | null | undefined): string {
   if (s === null || s === undefined) return "—";

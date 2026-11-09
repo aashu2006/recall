@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Noto_Sans_Devanagari } from "next/font/google";
+import { Geist, Noto_Sans_Devanagari } from "next/font/google";
 import Link from "next/link";
 import AutoRefresh from "@/components/AutoRefresh";
 import Nav from "@/components/Nav";
 import "./globals.css";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans", display: "swap" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 const notoDeva = Noto_Sans_Devanagari({
   subsets: ["devanagari"],
   weight: ["400", "500", "600"],
@@ -28,7 +27,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${notoDeva.variable}`}>
+    <html lang="en" className={`${geist.variable} ${notoDeva.variable}`}>
       <body className="min-h-dvh">
         <header className="sticky top-0 z-20 border-b bg-background">
           <div className="mx-auto flex h-12 max-w-6xl items-center gap-6 px-4 sm:px-6">

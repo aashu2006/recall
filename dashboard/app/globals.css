@@ -28,7 +28,6 @@
 
 @theme inline {
   --font-sans: var(--font-geist-sans), var(--font-noto-deva), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), var(--font-noto-deva), ui-monospace, SFMono-Regular, monospace;
   --font-heading: var(--font-sans);
   --color-ring: var(--ring);
   --color-input: var(--input);
@@ -67,11 +66,9 @@
   }
 }
 
-/* Quantities, rates, dates, durations: Geist Mono with tabular figures so columns line up. */
+/* Quantities, rates, order numbers, durations: tabular figures so columns line up. */
 .num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
 }
 
 /* Devanagari needs more room above and below than Latin. */
