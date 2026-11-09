@@ -102,14 +102,16 @@ The test set is 10 synthetic Hinglish voice notes (`eval/cases.json`) that cover
 
 | Metric | Clean audio | Noisy 8 kHz audio |
 | --- | --- | --- |
-| WER | _TBD_ | _TBD_ |
-| CER | _TBD_ | _TBD_ |
-| Extraction accuracy (item, quantity, rate, date all right) | _TBD_ | _TBD_ |
-| Matching accuracy | _TBD_ | _TBD_ |
-| Confirmation rate (items sent to the owner) | _TBD_ | _TBD_ |
-| Latency: Prisma | _TBD_ | _TBD_ |
-| Latency: extract + match | _TBD_ | _TBD_ |
-| Latency: total | _TBD_ | _TBD_ |
+| WER | 12.1% | 11.8% |
+| CER | 10.0% | 8.2% |
+| Extraction accuracy (item, quantity, rate, date all right) | 10/12 (83%) | 11/12 (92%) |
+| Matching accuracy | 11/12 (92%) | 12/12 (100%) |
+| Confirmation rate (items sent to the owner) | 2/12 (17%) | 1/12 (8%) |
+| Latency: Prisma, median / max | 0.6 s / 0.8 s | 0.5 s / 0.9 s |
+| Latency: extract + match, median / max | 4.1 s / 6.6 s | 3.7 s / 6.8 s |
+| Latency: total (no DB writes), median / max | 4.6 s / 7.2 s | 4.3 s / 7.7 s |
+
+Live LLM: Groq gpt-oss-120b with Gemini Flash-Lite fallback.
 
 Numbers come from `eval/results.md`.
 
