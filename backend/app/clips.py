@@ -88,6 +88,19 @@ def cut_clip(
     return out_path
 
 
+def duration(audio_path: str | Path) -> float:
+    """Length of an audio file in seconds (ffprobe)."""
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
+             str(audio_path)],
+            check=True, capture_output=True, text=True,
+        )
+        return round(float(out.stdout.strip()), 3)
+    except (FileNotFoundError, subprocess.CalledProcessError, ValueError) as e:
+        raise ClipError(f"ffprobe failed on {audio_path}: {e}") from e
+
+
 def to_wav16k(audio_path: str | Path, out_path: str | Path) -> Path:
     """Convert any audio ffmpeg can read to 16 kHz mono 16-bit wav."""
     _run_ffmpeg(

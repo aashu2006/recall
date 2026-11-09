@@ -153,6 +153,11 @@ class Db:
         )
         return bool(res.data)
 
+    def reopen_pending(self, pending_id: int) -> None:
+        """Undo a resolve when applying the owner's choice failed, so they can tap again."""
+        self.sb.table("pending_confirmations").update({"status": "pending", "resolved_at": None}) \
+            .eq("id", pending_id).execute()
+
     # storage
     def upload(self, object_path: str, local_path: str | Path, content_type: str) -> str:
         self.sb.storage.from_(self.bucket).upload(
