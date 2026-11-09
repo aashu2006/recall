@@ -1,106 +1,80 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-/* A modern bahi-khata: warm paper, ink-blue writing, faint ruled lines, red ink for the margin
-   and for anything that changed or is late. Paper is always light. */
+/* shadcn/ui neutral theme, light only. The one accent is a calm blue (primary, ring).
+   Red (destructive) is kept for overdue dates and old values. */
 :root {
-  --paper: #f9f5eb;
-  --paper-2: #f1ead9; /* header, hover */
-  --paper-3: #fdfbf5; /* inset sheets: proof panel, options */
-  --ink: #1c2a4f;
-  --ink-soft: #5d667e;
-  --ink-faint: #8a90a0;
-  --rule: #dcd6c7; /* structure lines */
-  --rule-blue: #cdd5e5; /* ruled writing lines */
-  --red: #a8372a;
-  --green: #2f6f45;
-  --line-h: 2.05rem; /* ruled transcript line spacing */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.53 0.13 255);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.215 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.53 0.13 255);
+  --radius: 0.5rem;
 }
 
 @theme inline {
-  --color-paper: var(--paper);
-  --color-paper-2: var(--paper-2);
-  --color-paper-3: var(--paper-3);
-  --color-ink: var(--ink);
-  --color-soft: var(--ink-soft);
-  --color-faint: var(--ink-faint);
-  --color-rule: var(--rule);
-  --color-rule-blue: var(--rule-blue);
-  --color-red: var(--red);
-  --color-green: var(--green);
-  --font-sans: var(--font-plex), var(--font-plex-deva), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-plex-serif), var(--font-plex-deva), ui-serif, Georgia, serif;
+  --font-sans: var(--font-geist-sans), var(--font-noto-deva), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), var(--font-noto-deva), ui-monospace, SFMono-Regular, monospace;
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
-html {
-  color-scheme: light;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    color-scheme: light;
+    @apply font-sans;
+  }
+  body {
+    @apply bg-background text-sm text-foreground antialiased;
+  }
 }
 
-body {
-  background: var(--paper);
-  color: var(--ink);
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
-}
-
-/* Figures: quantities, rates, dates, clip times. Tabular so columns line up, not monospace. */
+/* Quantities, rates, dates, durations: Geist Mono with tabular figures so columns line up. */
 .num {
-  font-variant-numeric: tabular-nums lining-nums;
-  font-feature-settings: "tnum" 1, "lnum" 1;
-}
-
-/* Small register label: "QTY", "RATE". */
-.label {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--ink-soft);
-}
-
-:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-  border-radius: 3px;
-}
-
-::selection {
-  background: color-mix(in oklab, var(--ink) 18%, transparent);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
 /* Devanagari needs more room above and below than Latin. */
 :lang(hi) {
-  line-height: 1.85;
-}
-
-/* A transcript written on ruled paper: one faint blue line per text line. */
-.ruled {
-  line-height: var(--line-h);
-  background-image: linear-gradient(
-    to bottom,
-    transparent calc(var(--line-h) - 1px),
-    var(--rule-blue) calc(var(--line-h) - 1px)
-  );
-  background-size: 100% var(--line-h);
-  background-position: 0 0;
-}
-
-/* Fresh data: an element keyed by its data remounts only when that data changes, so after an
-   auto refresh only the entries that changed fade in. */
-@keyframes fresh {
-  from {
-    opacity: 0.35;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.fresh {
-  animation: fresh 400ms ease-out;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fresh {
-    animation: none;
-  }
+  line-height: 1.75;
 }

@@ -21,14 +21,8 @@ export default function AutoRefresh() {
   }, [router]);
 
   return (
-    <span
-      className="flex items-center gap-2 text-[13px] text-soft"
-      title={paused ? "Updates pause while a recording plays" : "Updates every 10 seconds"}
-    >
-      <span
-        className={`h-2 w-2 rounded-full ring-[3px] ${paused ? "bg-red ring-red/15" : "bg-green ring-green/15 motion-safe:animate-pulse"}`}
-      />
-      {paused ? "Paused while playing" : "Live"}
+    <span className="hidden text-[13px] text-muted-foreground sm:inline" title="Refreshes every 10 seconds, paused while audio plays">
+      {paused ? "Auto-refresh paused" : "Auto-refresh on"}
     </span>
   );
 }

@@ -10,9 +10,9 @@ RLS is on with no policies, so the anon key can't read anything.
 
 | Route | Shows |
 | --- | --- |
-| `/` | Deliveries today and tomorrow (IST), pending confirmations count, open orders |
+| `/` | Open, due today, overdue and pending counts; open orders table with due date (IST) |
 | `/orders/[id]` | Order details and change history, each change with old → new and its proof clip |
-| `/calls` | Latest 50 calls: client, time, audio, transcript |
+| `/calls` | Latest 50 calls: time, client, duration; click a row for audio and transcript |
 | `/pending` | Pending confirmations: question, extracted item, candidate orders |
 
 Every page re-renders on the server every 10 s (`components/AutoRefresh.tsx`). Refresh pauses

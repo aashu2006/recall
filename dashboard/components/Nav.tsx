@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const LINKS = [
   { href: "/", label: "Orders" },
@@ -12,7 +13,7 @@ const LINKS = [
 export default function Nav() {
   const path = usePathname();
   return (
-    <nav className="-mb-px flex h-full gap-7">
+    <nav className="flex items-center gap-1">
       {LINKS.map(({ href, label }) => {
         const active = href === "/" ? path === "/" || path.startsWith("/orders") : path.startsWith(href);
         return (
@@ -20,9 +21,10 @@ export default function Nav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`flex items-center border-b-2 pt-0.5 pb-2.5 text-[15px] transition-colors duration-150 sm:py-0 ${
-              active ? "border-ink font-medium text-ink" : "border-transparent text-soft hover:border-rule hover:text-ink"
-            }`}
+            className={cn(
+              "rounded-md px-2.5 py-1.5 transition-colors",
+              active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
           >
             {label}
           </Link>
