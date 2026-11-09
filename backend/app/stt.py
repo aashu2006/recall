@@ -93,6 +93,20 @@ def transcribe(
     }
 
 
+def client_keyterms(
+    client: dict | None, open_orders: list[dict], settings: Settings | None = None
+) -> list[str]:
+    """Keyterms for one sender: client name + aliases + open order items/specs, then the
+    global GNANI_STT_KEYTERMS. Cleaned and capped by transcribe()."""
+    settings = settings or get_settings()
+    terms: list[str] = []
+    if client:
+        terms += [client.get("name") or "", *(client.get("aliases") or [])]
+    for order in open_orders:
+        terms += [order.get("item") or "", order.get("spec") or ""]
+    return _clean_keyterms(terms + list(settings.gnani_stt_keyterms))
+
+
 def _clean_keyterms(terms: list[str]) -> list[str]:
     """Strip, drop blanks and duplicates (case-insensitive), cap at Prisma's limit."""
     seen: set[str] = set()

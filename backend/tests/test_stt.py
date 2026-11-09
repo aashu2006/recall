@@ -254,3 +254,19 @@ def test_max_chunk_setting_is_passed_to_splitter(monkeypatch, settings):
 def test_real_http_is_blocked():
     with pytest.raises(RuntimeError, match="Real HTTP call blocked"):
         httpx.post("https://api.vachana.ai/stt/v3")
+
+
+def test_client_keyterms_from_name_aliases_and_open_orders():
+    settings = Settings(_env_file=None, gnani_stt_keyterms=["kg", "bracket"])
+    client = {"name": "Sharma Steels", "aliases": ["Sharma ji", "sharma steels"]}
+    orders = [{"item": "bracket", "spec": None}, {"item": "angle", "spec": "40x40x5"}]
+
+    terms = stt.client_keyterms(client, orders, settings)
+
+    assert terms == ["Sharma Steels", "Sharma ji", "bracket", "angle", "40x40x5", "kg"]
+
+
+def test_client_keyterms_unknown_sender_uses_global_list():
+    settings = Settings(_env_file=None, gnani_stt_keyterms=["MS sheet"])
+
+    assert stt.client_keyterms(None, [], settings) == ["MS sheet"]
