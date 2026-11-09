@@ -104,14 +104,16 @@ The test set is 10 synthetic Hinglish voice notes (`eval/cases.json`) that cover
 | --- | --- | --- |
 | WER | 12.1% | 11.8% |
 | CER | 10.0% | 8.2% |
-| Extraction accuracy (item, quantity, rate, date all right) | 10/12 (83%) | 11/12 (92%) |
-| Matching accuracy | 11/12 (92%) | 12/12 (100%) |
-| Confirmation rate (items sent to the owner) | 2/12 (17%) | 1/12 (8%) |
+| Extraction accuracy (item, quantity, rate, date all right) | 10/12 (83%) | 10/12 (83%) |
+| Matching accuracy | 9/12 (75%) | 11/12 (92%) |
+| Confirmation rate (items sent to the owner) | 4/12 (33%) | 2/12 (17%) |
 | Latency: Prisma, median / max | 0.6 s / 0.8 s | 0.5 s / 0.9 s |
-| Latency: extract + match, median / max | 4.1 s / 6.6 s | 3.7 s / 6.8 s |
-| Latency: total (no DB writes), median / max | 4.6 s / 7.2 s | 4.3 s / 7.7 s |
+| Latency: extract + match, median / max | 3.3 s / 9.0 s | 3.7 s / 7.2 s |
+| Latency: total (no DB writes), median / max | 3.8 s / 9.6 s | 4.2 s / 7.8 s |
 
 Live LLM: Groq gpt-oss-120b with Gemini Flash-Lite fallback.
+
+10 notes is a small set; numbers vary by about ±1 item between runs due to LLM variance.
 
 Numbers come from `eval/results.md`.
 

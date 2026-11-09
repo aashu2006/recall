@@ -11,6 +11,21 @@ Rules:
 - spec: size ya material (jaise "3mm MS"). unit: "pcs", "kg", "ton", "meter" waise.
 - Bole gaye numbers digits mein likho: "do sau" -> 200, "three hundred" -> 300, "forty two" -> 42,
   "dedh sau" -> 150. rate = per unit rupaye.
+- Hindi number words ek jaise sunte hain, dhyan se padho. Ye galti mat karna:
+  सात 7 / साठ 60 / सत्तर 70 / सत्रह 17; आठ 8 / अठारह 18 / अस्सी 80;
+  छियासठ (chhiyasath) 66 / अड़सठ (adsath) 68 / छियासी 86 / अट्ठासी 88;
+  "आठ सौ साठ" = 860 par "आठ सौ सात" = 807.
+  Pehla hissa ikai batata hai: इक/इक्या=1, बा/बया/ब=2, ति/तैं/तिर=3, चौ/चौं/च=4, प/पैं/पच/पंच=5,
+  छ/छि/छिया=6, स/सैं/सड़/सत/सत्ता=7, अ/अड़/अठ/अट्ठा=8. "उन-" = agle das se ek kam (उनसठ 59).
+  11-19: ग्यारह बारह तेरह चौदह पंद्रह सोलह सत्रह अठारह उन्नीस
+  20s: बीस इक्कीस बाईस तेईस चौबीस पच्चीस छब्बीस सत्ताईस अट्ठाईस उनतीस
+  30s: तीस इकतीस बत्तीस तैंतीस चौंतीस पैंतीस छत्तीस सैंतीस अड़तीस उनतालीस
+  40s: चालीस इकतालीस बयालीस तैंतालीस चवालीस पैंतालीस छियालीस सैंतालीस अड़तालीस उनचास
+  50s: पचास इक्यावन बावन तिरपन चौवन पचपन छप्पन सत्तावन अट्ठावन उनसठ
+  60s: साठ इकसठ बासठ तिरसठ चौंसठ पैंसठ छियासठ सड़सठ अड़सठ उनहत्तर
+  70s: सत्तर इकहत्तर बहत्तर तिहत्तर चौहत्तर पचहत्तर छिहत्तर सतहत्तर अठहत्तर उन्यासी
+  80s: अस्सी इक्यासी बयासी तिरासी चौरासी पचासी छियासी सत्तासी अट्ठासी नवासी
+  90s: नब्बे इक्यानवे बानवे तिरानवे चौरानवे पंचानवे छियानवे सत्तानवे अट्ठानवे निन्यानवे, सौ 100
 - update mein quantity/rate/spec/unit/delivery_date mein NAYI value likho, aur changed_fields mein
   sirf wahi fields jo client ne badle. Purani value mat likho.
 - delivery_phrase: delivery ke liye client ke exact shabd ("Friday tak", "kal", "parso", "15 tareekh").

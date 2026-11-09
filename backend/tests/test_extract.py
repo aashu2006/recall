@@ -110,3 +110,20 @@ def test_resolve_uses_ist_date(fake_llm):
                     client_name=None, open_orders=[])
 
     assert "2026-11-09 (Monday)" in seen["user"]
+
+
+def test_prompt_has_hindi_number_words_that_sound_alike(fake_llm):
+    seen = fake_llm(EXTRACT_KEYTERMS)
+
+    extract.extract(TRANSCRIPT_KEYTERMS, call_time=CALL_TIME, client_name="Sharma Steels",
+                    open_orders=[BRACKET_ORDER])
+
+    system = seen["system"]
+    for pair in ("छियासठ (chhiyasath) 66", "अड़सठ (adsath) 68", "साठ 60", "सात 7", '"आठ सौ साठ" = 860'):
+        assert pair in system
+    rows = dict(line.strip().split(": ", 1) for line in system.splitlines()
+                if line.strip()[:3] in {"11-", "20s", "30s", "40s", "50s", "60s", "70s", "80s", "90s"})
+    assert len(rows["11-19"].split()) == 9
+    for decade in ("20s", "30s", "40s", "50s", "60s", "70s", "80s"):
+        assert len(rows[decade].split()) == 10, decade  # tens word + x1 .. x9
+    assert rows["90s"].split(", ")[0].count(" ") == 9 and rows["90s"].endswith("सौ 100")
