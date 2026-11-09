@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     gnani_stt_max_chunk_s: float = 28.0
     gnani_tts_model: str = "timbre-v2.5"
     gnani_tts_voice: str = "Poorvi"
+    gnani_tts_language: str = "hi-en"
 
     # WhatsApp Cloud API
     wa_token: str = ""
@@ -46,6 +47,9 @@ class Settings(BaseSettings):
     gemini_model: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     llm_timeout: float = 30.0
+
+    # Bearer token for POST /briefing/send (GitHub Actions cron)
+    cron_secret: str = ""
 
     # Supabase
     supabase_url: str = ""

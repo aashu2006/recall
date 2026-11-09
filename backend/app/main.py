@@ -4,6 +4,7 @@ the morning briefing trigger.
 The POST handler must return 200 immediately; all work runs in a BackgroundTask.
 """
 
+import hmac
 import json
 import logging
 from typing import Annotated
@@ -11,8 +12,9 @@ from typing import Annotated
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, Query, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from app import whatsapp
+from app import briefing, whatsapp
 from app.config import Settings, get_settings
+from app.db import get_db
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
@@ -58,3 +60,16 @@ async def receive_webhook(
         return JSONResponse({"status": "bad json"}, status_code=400)
     background.add_task(whatsapp.process_webhook, payload)
     return {"status": "received"}
+
+
+@app.post("/briefing/send")
+def send_briefing(
+    settings: Annotated[Settings, Depends(get_settings)],
+    authorization: Annotated[str | None, Header()] = None,
+):
+    """Morning briefing to the owner. Called by the GitHub Actions cron with CRON_SECRET."""
+    expected = f"Bearer {settings.cron_secret}"
+    if not settings.cron_secret or not hmac.compare_digest(authorization or "", expected):
+        return JSONResponse({"status": "forbidden"}, status_code=403)
+    db = get_db()
+    return briefing.send(db, whatsapp.WhatsApp(settings=settings, db=db))
