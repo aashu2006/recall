@@ -22,11 +22,13 @@ export default function AutoRefresh() {
 
   return (
     <span
-      className="flex items-center gap-2 text-sm text-soft"
+      className="flex items-center gap-2 text-[13px] text-soft"
       title={paused ? "Updates pause while a recording plays" : "Updates every 10 seconds"}
     >
-      <span className={`h-2 w-2 rounded-full ${paused ? "bg-red" : "bg-green motion-safe:animate-pulse"}`} />
-      {paused ? "Paused" : "Live"}
+      <span
+        className={`h-2 w-2 rounded-full ring-[3px] ${paused ? "bg-red ring-red/15" : "bg-green ring-green/15 motion-safe:animate-pulse"}`}
+      />
+      {paused ? "Paused while playing" : "Live"}
     </span>
   );
 }

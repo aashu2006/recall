@@ -1,29 +1,34 @@
 @import "tailwindcss";
 
-/* The owner's order register (bahi-khata): warm paper, ink-blue writing, faint ruled lines,
-   red ink for the margin and for anything that changed or is late. Paper is always light. */
+/* A modern bahi-khata: warm paper, ink-blue writing, faint ruled lines, red ink for the margin
+   and for anything that changed or is late. Paper is always light. */
 :root {
-  --paper: #faf6ec;
-  --paper-2: #f2ecdc;
-  --ink: #1f2f57;
-  --ink-soft: #66708a;
-  --rule: #d6d9e2;
-  --red: #b0392c;
-  --green: #3d7a4e;
-  --line-h: 2rem; /* ruled transcript line spacing */
+  --paper: #f9f5eb;
+  --paper-2: #f1ead9; /* header, hover */
+  --paper-3: #fdfbf5; /* inset sheets: proof panel, options */
+  --ink: #1c2a4f;
+  --ink-soft: #5d667e;
+  --ink-faint: #8a90a0;
+  --rule: #dcd6c7; /* structure lines */
+  --rule-blue: #cdd5e5; /* ruled writing lines */
+  --red: #a8372a;
+  --green: #2f6f45;
+  --line-h: 2.05rem; /* ruled transcript line spacing */
 }
 
 @theme inline {
   --color-paper: var(--paper);
   --color-paper-2: var(--paper-2);
+  --color-paper-3: var(--paper-3);
   --color-ink: var(--ink);
   --color-soft: var(--ink-soft);
+  --color-faint: var(--ink-faint);
   --color-rule: var(--rule);
+  --color-rule-blue: var(--rule-blue);
   --color-red: var(--red);
   --color-green: var(--green);
   --font-sans: var(--font-plex), var(--font-plex-deva), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-plex-serif), var(--font-plex-deva), ui-serif, Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html {
@@ -37,11 +42,19 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Figures: quantities, rates, dates, clip times. */
+/* Figures: quantities, rates, dates, clip times. Tabular so columns line up, not monospace. */
 .num {
-  font-family: var(--font-mono);
-  font-feature-settings: "tnum" 1, "zero" 0;
-  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* Small register label: "QTY", "RATE". */
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
 :focus-visible {
@@ -59,19 +72,23 @@ body {
   line-height: 1.85;
 }
 
-/* A transcript written on ruled paper: one faint line per text line. */
+/* A transcript written on ruled paper: one faint blue line per text line. */
 .ruled {
   line-height: var(--line-h);
-  background-image: linear-gradient(to bottom, transparent calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px));
+  background-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--line-h) - 1px),
+    var(--rule-blue) calc(var(--line-h) - 1px)
+  );
   background-size: 100% var(--line-h);
-  background-position: 0 2px;
+  background-position: 0 0;
 }
 
 /* Fresh data: an element keyed by its data remounts only when that data changes, so after an
    auto refresh only the entries that changed fade in. */
 @keyframes fresh {
   from {
-    opacity: 0.3;
+    opacity: 0.35;
   }
   to {
     opacity: 1;
@@ -79,7 +96,7 @@ body {
 }
 
 .fresh {
-  animation: fresh 450ms ease-out;
+  animation: fresh 400ms ease-out;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Empty, PageTitle, Register, SectionTitle, SummaryRow } from "@/components/ui";
+import { Badge, Empty, PageTitle, Register, SectionTitle, SummaryRow, Unit } from "@/components/ui";
 import { fmtDate, fmtNum, fmtRate, istDate } from "@/lib/format";
 import { db, must } from "@/lib/supabase";
 import type { Order } from "@/lib/types";
@@ -42,12 +42,12 @@ export default async function Home() {
         stats={[
           { label: "Open orders", value: orders.length, note: `${clients} ${clients === 1 ? "client" : "clients"}` },
           {
-            label: "Deliveries today",
+            label: "Deliver today",
             value: dueToday.length,
             note: overdue ? `${overdue} overdue from earlier` : fmtDate(today),
             alert: overdue > 0,
           },
-          { label: "Deliveries tomorrow", value: dueTomorrow.length, note: fmtDate(tomorrow) },
+          { label: "Deliver tomorrow", value: dueTomorrow.length, note: fmtDate(tomorrow) },
           {
             label: "Needs your answer",
             value: pendingCount,
@@ -58,13 +58,13 @@ export default async function Home() {
         ]}
       />
 
-      <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-8">
+      <div className="mt-14 grid gap-12 lg:grid-cols-2 lg:gap-10">
         <DeliveryDay title="Deliver today" date={today} orders={dueToday} empty="Nothing due today." />
         <DeliveryDay title="Deliver tomorrow" date={tomorrow} orders={dueTomorrow} empty="Nothing due tomorrow." />
       </div>
 
-      <div className="mt-12">
-        <SectionTitle aside={`${orders.length} open`}>All open orders</SectionTitle>
+      <div className="mt-14">
+        <SectionTitle aside={<span className="num">{orders.length} open</span>}>All open orders</SectionTitle>
         <Register>
           {orders.length ? <OrdersTable orders={orders} today={today} dueLabel={dueLabel} /> : <Empty>No open orders yet.</Empty>}
         </Register>
@@ -76,7 +76,17 @@ export default async function Home() {
 function DeliveryDay({ title, date, orders, empty }: { title: string; date: string; orders: Order[]; empty: string }) {
   return (
     <section>
-      <SectionTitle aside={<span className="num">{fmtDate(date)}</span>}>{title}</SectionTitle>
+      <SectionTitle
+        aside={
+          <span className="num">
+            {fmtDate(date)}
+            <span className="mx-2 text-rule">|</span>
+            {orders.length} {orders.length === 1 ? "order" : "orders"}
+          </span>
+        }
+      >
+        {title}
+      </SectionTitle>
       <Register>
         {orders.length === 0 ? (
           <Empty>{empty}</Empty>
@@ -86,21 +96,24 @@ function DeliveryDay({ title, date, orders, empty }: { title: string; date: stri
               <li key={rowKey(o)} className="fresh">
                 <Link
                   href={`/orders/${o.id}`}
-                  className="flex items-baseline justify-between gap-4 px-4 py-3.5 transition-colors duration-150 hover:bg-paper-2/70 sm:px-5"
+                  className="group flex items-center justify-between gap-4 px-4 py-4 transition-colors duration-150 hover:bg-paper-2/60 sm:px-5"
                 >
                   <span className="min-w-0">
-                    <span className="block truncate text-[16px] font-medium">
+                    <span className="block truncate text-[17px] font-medium group-hover:underline group-hover:decoration-ink/30 group-hover:underline-offset-4">
                       {o.item}
                       {o.spec && <span className="font-normal text-soft"> {o.spec}</span>}
                     </span>
-                    <span className="block truncate text-sm text-soft">{o.clients?.name ?? "Unknown client"}</span>
+                    <span className="mt-0.5 block truncate text-sm text-soft">
+                      {o.clients?.name ?? "Unknown client"}
+                      <span className="num text-faint"> · #{o.id}</span>
+                    </span>
                   </span>
                   <span className="shrink-0 text-right">
-                    <span className="num block text-[22px] leading-tight">
+                    <span className="num block text-[26px] leading-none tracking-tight">
                       {fmtNum(o.quantity)}
-                      <span className="ml-1 font-sans text-sm text-soft">{o.unit}</span>
+                      <Unit>{o.unit}</Unit>
                     </span>
-                    <span className="num block text-[13px] text-soft">{fmtRate(o.rate, o.unit)}</span>
+                    <span className="num mt-1.5 block text-[13px] text-soft">{fmtRate(o.rate, o.unit)}</span>
                   </span>
                 </Link>
               </li>
@@ -114,28 +127,30 @@ function DeliveryDay({ title, date, orders, empty }: { title: string; date: stri
 
 function OrdersTable({ orders, today, dueLabel }: { orders: Order[]; today: string; dueLabel: (d: string | null) => string }) {
   const overdue = (o: Order) => o.status === "open" && !!o.delivery_date && o.delivery_date < today;
+  const soon = (d: string | null) => d === today || d === istDate(1);
   return (
     <>
       {/* Phones: one ruled entry per order */}
       <ul className="divide-y divide-rule sm:hidden">
         {orders.map((o) => (
-          <li key={rowKey(o)} className="fresh">
+          <li key={rowKey(o)} className={`fresh ${overdue(o) ? "bg-red/[0.04]" : ""}`}>
             <Link href={`/orders/${o.id}`} className="block px-4 py-3.5 active:bg-paper-2">
               <div className="flex items-baseline justify-between gap-3">
-                <p className="min-w-0 truncate font-medium">
+                <p className="min-w-0 truncate text-[16px] font-medium">
                   {o.item} {o.spec && <span className="font-normal text-soft">{o.spec}</span>}
                 </p>
-                <p className="num shrink-0">
-                  {fmtNum(o.quantity)} <span className="font-sans text-sm text-soft">{o.unit}</span>
+                <p className="num shrink-0 text-[17px]">
+                  {fmtNum(o.quantity)}
+                  <Unit>{o.unit}</Unit>
                 </p>
               </div>
               <div className="mt-0.5 flex items-baseline justify-between gap-3 text-sm">
                 <p className="min-w-0 truncate text-soft">{o.clients?.name ?? "Unknown client"}</p>
                 <p className="num shrink-0 text-soft">{fmtRate(o.rate, o.unit)}</p>
               </div>
-              <p className={`mt-1 text-sm ${overdue(o) ? "text-red" : "text-soft"}`}>
+              <p className={`num mt-1.5 text-[13px] ${overdue(o) ? "font-medium text-red" : soon(o.delivery_date) ? "text-ink" : "text-soft"}`}>
                 {overdue(o) ? "Overdue, was due " : "Due "}
-                <span className="num">{dueLabel(o.delivery_date).replace(/^(Today|Tomorrow)$/, (d) => d.toLowerCase())}</span>
+                {dueLabel(o.delivery_date).replace(/^(Today|Tomorrow)$/, (d) => d.toLowerCase())}
               </p>
             </Link>
           </li>
@@ -144,42 +159,53 @@ function OrdersTable({ orders, today, dueLabel }: { orders: Order[]; today: stri
 
       {/* Tablets and up: the register */}
       <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full text-left text-[15px]">
+        <table className="num w-full text-left text-[15px]">
           <thead>
-            <tr className="border-b-[3px] border-double border-ink/30 text-sm text-soft">
-              <th className="px-5 py-2.5 font-medium">Client</th>
-              <th className="px-3 py-2.5 font-medium">Item</th>
-              <th className="px-3 py-2.5 text-right font-medium">Quantity</th>
-              <th className="px-3 py-2.5 text-right font-medium">Rate</th>
-              <th className="px-3 py-2.5 font-medium">Delivery</th>
-              <th className="px-5 py-2.5 font-medium">
+            <tr className="border-b-[3px] border-double border-ink/25">
+              <th className="label w-16 py-3 pr-2 pl-5 font-medium">No.</th>
+              <th className="label px-3 py-3 font-medium">Client</th>
+              <th className="label px-3 py-3 font-medium">Item</th>
+              <th className="label px-3 py-3 text-right font-medium">Qty</th>
+              <th className="label px-3 py-3 text-right font-medium">Rate</th>
+              <th className="label py-3 pr-3 pl-8 font-medium">Delivery</th>
+              <th className="py-3 pr-5">
                 <span className="sr-only">Status</span>
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-rule">
             {orders.map((o) => (
-              <tr key={rowKey(o)} className="fresh group relative transition-colors duration-150 hover:bg-paper-2/70">
-                <td className="px-5 py-3">
+              <tr
+                key={rowKey(o)}
+                className={`fresh group relative transition-colors duration-150 hover:bg-paper-2/60 ${overdue(o) ? "bg-red/[0.04]" : ""}`}
+              >
+                <td className="py-3.5 pr-2 pl-5 text-[13px] text-faint">#{o.id}</td>
+                <td className="px-3 py-3.5">
                   {/* The stretched link makes the whole row clickable. */}
                   <Link
                     href={`/orders/${o.id}`}
-                    className="font-medium after:absolute after:inset-0 group-hover:underline group-hover:underline-offset-4"
+                    className="font-medium after:absolute after:inset-0 group-hover:underline group-hover:decoration-ink/30 group-hover:underline-offset-4"
                   >
                     {o.clients?.name ?? "Unknown"}
                   </Link>
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-3.5">
                   {o.item}
                   {o.spec && <span className="ml-1.5 text-soft">{o.spec}</span>}
                 </td>
-                <td className="num px-3 py-3 text-right whitespace-nowrap">
-                  {fmtNum(o.quantity)}
-                  <span className="ml-1 font-sans text-sm text-soft">{o.unit ?? ""}</span>
+                <td className="px-3 py-3.5 text-right whitespace-nowrap">
+                  <span className="text-[16px]">{fmtNum(o.quantity)}</span>
+                  <span className="ml-1 inline-block w-7 text-left text-[13px] text-soft">{o.unit ?? ""}</span>
                 </td>
-                <td className="num px-3 py-3 text-right whitespace-nowrap">{fmtRate(o.rate)}</td>
-                <td className={`num px-3 py-3 whitespace-nowrap ${overdue(o) ? "text-red" : ""}`}>{dueLabel(o.delivery_date)}</td>
-                <td className="px-5 py-3 text-right">{overdue(o) && <Badge status="overdue" />}</td>
+                <td className="px-3 py-3.5 text-right whitespace-nowrap">{fmtRate(o.rate)}</td>
+                <td
+                  className={`py-3.5 pr-3 pl-8 whitespace-nowrap ${
+                    overdue(o) ? "font-medium text-red" : soon(o.delivery_date) ? "font-medium text-ink" : "text-soft"
+                  }`}
+                >
+                  {dueLabel(o.delivery_date)}
+                </td>
+                <td className="py-3.5 pr-5 text-right">{overdue(o) && <Badge status="overdue" />}</td>
               </tr>
             ))}
           </tbody>

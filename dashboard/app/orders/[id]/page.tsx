@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Badge, Empty, Register, SectionTitle, SummaryRow } from "@/components/ui";
+import { Badge, Empty, Register, SectionTitle, SummaryRow, Unit } from "@/components/ui";
 import { signAudio } from "@/lib/audio";
 import {
   fieldLabel,
@@ -56,12 +56,14 @@ export default async function OrderPage({ params }: Params) {
         Order book
       </Link>
 
-      <div className="mt-4 mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="mt-5 mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <p className="text-[15px] text-soft">
-            {client}, order <span className="num">#{order.id}</span>
+            <span className="font-medium text-ink">{client}</span>
+            <span className="mx-2 text-rule">|</span>
+            <span className="num">Order #{order.id}</span>
           </p>
-          <h1 className="mt-1 font-serif text-[30px] leading-tight font-semibold tracking-tight sm:text-[38px]">
+          <h1 className="mt-2 font-serif text-[34px] leading-[1.05] font-semibold tracking-tight sm:text-[48px]">
             {order.item}
             {order.spec && <span className="font-medium text-soft"> {order.spec}</span>}
           </h1>
@@ -73,16 +75,32 @@ export default async function OrderPage({ params }: Params) {
         <SummaryRow
           size="md"
           stats={[
-            { label: "Quantity", value: `${fmtNum(order.quantity)} ${order.unit ?? ""}`.trim() },
-            { label: "Rate", value: fmtRate(order.rate, order.unit) },
+            {
+              label: "Quantity",
+              value: (
+                <>
+                  {fmtNum(order.quantity)}
+                  {order.unit && <Unit>{order.unit}</Unit>}
+                </>
+              ),
+            },
+            {
+              label: "Rate",
+              value: order.rate == null ? "—" : (
+                <>
+                  {fmtRate(order.rate)}
+                  {order.unit && <span className="text-[0.62em] font-normal text-soft">/{order.unit}</span>}
+                </>
+              ),
+            },
             { label: "Delivery", value: fmtDate(order.delivery_date) },
             { label: "Last changed", value: fmtTime(order.updated_at) },
           ]}
         />
       </div>
 
-      <div className="mt-12">
-        <SectionTitle aside={`${changes.length} ${changes.length === 1 ? "entry" : "entries"}`}>
+      <div className="mt-14">
+        <SectionTitle aside={<span className="num">{changes.length} {changes.length === 1 ? "entry" : "entries"}</span>}>
           What changed, and who said it
         </SectionTitle>
         <Register>
@@ -195,22 +213,29 @@ function Entry({
       : manualLabel(e.changes[0].field);
 
   return (
-    <div className="grid gap-x-6 gap-y-2 px-4 py-5 sm:grid-cols-[96px_1fr] sm:px-5">
-      <p className="num text-sm text-soft sm:pt-0.5">
-        <span className="text-ink">{dayOf(e.createdAt)}</span>
-        <span className="ml-2 sm:ml-0 sm:block">{timeOf(e.createdAt)}</span>
-      </p>
+    <div className={`grid gap-x-8 gap-y-3 px-4 py-6 sm:grid-cols-[92px_1fr] sm:px-6 ${latest ? "bg-paper-3" : ""}`}>
+      <div className="num flex items-baseline gap-2 text-sm sm:block sm:pt-0.5">
+        <p className="font-medium text-ink">{dayOf(e.createdAt)}</p>
+        <p className="text-soft">{timeOf(e.createdAt)}</p>
+        {latest && (
+          <p className="ml-auto text-[12px] font-semibold tracking-[0.06em] text-red uppercase sm:mt-2 sm:ml-0">Latest</p>
+        )}
+      </div>
 
       <div className="min-w-0">
-        <p className="text-[15px] text-soft">
-          {what}
-          {latest && <span className="ml-2 font-medium text-red">Latest</span>}
-          {e.confidence != null && fromCall && <span className="num ml-2 text-[13px]">{Math.round(e.confidence * 100)}% sure</span>}
+        <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[15px] text-soft">
+          {fromCall ? <MicIcon /> : <PenIcon />}
+          <span>{what}</span>
+          {e.confidence != null && fromCall && (
+            <span className="num rounded-full bg-ink/[0.06] px-2 py-px text-[12px] text-soft">
+              {Math.round(e.confidence * 100)}% sure
+            </span>
+          )}
         </p>
 
         {created && <CreatedValue value={created.new_value} />}
         {edits.length > 0 && (
-          <dl className="mt-2 space-y-1.5">
+          <dl className="mt-4 space-y-3">
             {edits.map((c) => (
               <Diff key={c.id} change={c} unit={unit} />
             ))}
@@ -218,19 +243,34 @@ function Entry({
         )}
 
         {fromCall && (
-          <div className="mt-4 space-y-3">
-            <AudioPlayer src={audio} start={e.clipStart} end={e.clipEnd} />
-            {said && (
-              <blockquote lang="hi" className="max-w-[70ch] text-[16px] text-ink/80">
-                &ldquo;<Highlight text={said} />&rdquo;
-              </blockquote>
-            )}
-            <Link
-              href={`/calls#call-${e.callId}`}
-              className="inline-block rounded text-sm text-soft underline decoration-rule underline-offset-4 transition-colors hover:text-ink hover:decoration-ink/40"
-            >
-              Full transcript of call <span className="num">#{e.callId}</span>
-            </Link>
+          <div className="mt-6 grid gap-x-8 gap-y-4 rounded-md border border-rule bg-paper-3 p-4 sm:p-5 lg:grid-cols-[260px_1fr]">
+            <div className="lg:border-r lg:border-rule lg:pr-8">
+              <p className="label mb-3">Proof</p>
+              <AudioPlayer src={audio} start={e.clipStart} end={e.clipEnd} variant="proof" />
+            </div>
+            <div className="min-w-0">
+              {said && (
+                <>
+                  <p className="label mb-2">What was said</p>
+                  <blockquote lang="hi" className="max-w-[68ch] text-[17px] text-ink/85">
+                    <span className="text-faint">&ldquo;</span>
+                    <Highlight text={said} />
+                    <span className="text-faint">&rdquo;</span>
+                  </blockquote>
+                </>
+              )}
+              <Link
+                href={`/calls#call-${e.callId}`}
+                className={`group inline-block rounded text-sm text-soft transition-colors hover:text-ink ${said ? "mt-3" : ""}`}
+              >
+                <span className="underline decoration-rule underline-offset-4 group-hover:decoration-ink/40">
+                  Full transcript of call <span className="num">#{e.callId}</span>
+                </span>
+                <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
+                  →
+                </span>
+              </Link>
+            </div>
           </div>
         )}
       </div>
@@ -238,22 +278,25 @@ function Entry({
   );
 }
 
-/** Old value struck through in red ink, new value written in bold ink. */
+/** Old value struck through in red ink, an arrow, the new value written large in ink. */
 function Diff({ change: c, unit }: { change: OrderChange; unit: string | null }) {
   const delta = fmtDelta(c.field, c.old_value, c.new_value);
   const qtyUnit = c.field === "quantity" && unit ? unit : null;
   return (
-    <div className="grid grid-cols-[88px_1fr] items-baseline gap-x-3 sm:grid-cols-[110px_1fr]">
-      <dt className="text-[15px] text-soft">{fieldLabel(c.field)}</dt>
-      <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="num text-[18px] text-red line-through decoration-red decoration-[1.5px]">
+    <div className="grid grid-cols-[84px_1fr] items-baseline gap-x-3 sm:grid-cols-[108px_1fr]">
+      <dt className="label">{fieldLabel(c.field)}</dt>
+      <dd className="num flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-[18px] text-red/90 line-through decoration-red decoration-[1.5px]">
           {fmtChangeValue(c.field, c.old_value)}
         </span>
-        <span className="num text-[28px] leading-tight font-medium text-ink sm:text-[32px]">
+        <svg viewBox="0 0 20 12" className="h-3 w-5 shrink-0 self-center text-faint" fill="none" stroke="currentColor" strokeWidth="1.6" aria-label="changed to">
+          <path d="M1 6h17M13 1.5 18 6l-5 4.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span className="text-[30px] leading-none font-medium tracking-tight text-ink sm:text-[36px]">
           {fmtChangeValue(c.field, c.new_value)}
-          {qtyUnit && <span className="ml-1.5 font-sans text-base font-normal text-soft">{qtyUnit}</span>}
+          {qtyUnit && <Unit>{qtyUnit}</Unit>}
         </span>
-        {delta && <span className="num text-sm text-soft">({delta})</span>}
+        {delta && <span className="rounded bg-ink/[0.06] px-1.5 py-px text-[13px] text-soft">{delta}</span>}
       </dd>
     </div>
   );
@@ -266,7 +309,7 @@ function CreatedValue({ value }: { value: string | null }) {
     const parsed = value ? JSON.parse(value) : null;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed;
   } catch {}
-  if (!obj) return value ? <p className="mt-2 text-[15px]">{value}</p> : null;
+  if (!obj) return value ? <p className="mt-3 text-[15px]">{value}</p> : null;
 
   const unit = typeof obj.unit === "string" ? obj.unit : null;
   const entries = Object.entries(obj)
@@ -283,13 +326,30 @@ function CreatedValue({ value }: { value: string | null }) {
     ])
     .sort(([a], [b]) => fieldRank(a) - fieldRank(b));
   return (
-    <dl className="mt-2 flex flex-wrap gap-x-7 gap-y-2">
+    <dl className="mt-4 flex flex-wrap gap-x-9 gap-y-3">
       {entries.map(([k, v]) => (
         <div key={k}>
-          <dt className="text-sm text-soft">{fieldLabel(k)}</dt>
-          <dd className={`text-[17px] font-medium ${["quantity", "rate", "delivery_date"].includes(k) ? "num" : ""}`}>{v}</dd>
+          <dt className="label">{fieldLabel(k)}</dt>
+          <dd className={`mt-1 text-[18px] font-medium ${["quantity", "rate", "delivery_date"].includes(k) ? "num" : ""}`}>{v}</dd>
         </div>
       ))}
     </dl>
+  );
+}
+
+function MicIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 text-ink" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <rect x="5.5" y="1.75" width="5" height="8" rx="2.5" />
+      <path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PenIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4 text-faint" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+      <path d="M10.5 2.5 13.5 5.5 6 13H3v-3l7.5-7.5Z" strokeLinejoin="round" />
+    </svg>
   );
 }
