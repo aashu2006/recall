@@ -34,7 +34,7 @@ export default async function CallsPage() {
       ) : (
         <ul className="space-y-4">
           {calls.map((c) => (
-            <li key={`${c.id}-${c.transcript ? "t" : "p"}`} id={`call-${c.id}`} className="fresh scroll-mt-24">
+            <li key={`${c.id}-${c.transcript == null ? "p" : "t"}`} id={`call-${c.id}`} className="fresh scroll-mt-24">
               <Card className="overflow-hidden transition-colors duration-300 [:target>&]:border-accent/70">
                 <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-[220px_1fr] md:gap-8">
                   <div className="min-w-0 space-y-3">
@@ -51,12 +51,14 @@ export default async function CallsPage() {
                       duration={c.duration_seconds}
                     />
                   </div>
-                  {c.transcript ? (
+                  {c.transcript == null ? (
+                    <p className="text-[15px] text-muted">Transcribing…</p>
+                  ) : c.transcript.trim() === "" ? (
+                    <p className="text-[15px] text-muted">No speech found</p>
+                  ) : (
                     <p lang="hi" className="max-w-[68ch] text-[17px] whitespace-pre-wrap text-ink/90">
                       <Highlight text={c.transcript} />
                     </p>
-                  ) : (
-                    <p className="text-[15px] text-muted">Transcribing…</p>
                   )}
                 </div>
               </Card>
