@@ -172,7 +172,10 @@ def _handle_voice(message: dict, sender_name: str | None, wa: WhatsApp, db: Db) 
             raise
     if result.duplicate:
         return
-    wa.send_text(sender, result.summary)
+    try:
+        wa.send_text(sender, result.summary)
+    except Exception:  # e.g. sender not on the test number's allowed list; owner still gets the buttons
+        log.exception("Summary to %s failed", sender)
     owner = wa.settings.owner_wa_number
     if not owner:
         if result.pending:

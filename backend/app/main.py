@@ -67,7 +67,7 @@ def send_briefing(
     settings: Annotated[Settings, Depends(get_settings)],
     authorization: Annotated[str | None, Header()] = None,
 ):
-    """Morning briefing to the owner. Called by the GitHub Actions cron with CRON_SECRET."""
+    """Morning briefing to the owner. Any scheduler can call it with CRON_SECRET as a Bearer token."""
     expected = f"Bearer {settings.cron_secret}"
     if not settings.cron_secret or not hmac.compare_digest(authorization or "", expected):
         return JSONResponse({"status": "forbidden"}, status_code=403)

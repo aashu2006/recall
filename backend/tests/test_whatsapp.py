@@ -31,12 +31,15 @@ class Graph:
 
     def __init__(self):
         self.requests: list[httpx.Request] = []
+        self.reject_to: set[str] = set()  # recipients the Graph API refuses (400)
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         request.read()
         self.requests.append(request)
         url = str(request.url)
         if url.endswith("/PNID/messages"):
+            if json.loads(request.content).get("to") in self.reject_to:
+                return httpx.Response(400, json={"error": {"code": 131030, "message": "not in allowed list"}})
             return httpx.Response(200, json={"messages": [{"id": f"wamid.out{len(self.requests)}"}]})
         if url.endswith("/PNID/media"):
             return httpx.Response(200, json={"id": "media-up-1"})
@@ -206,6 +209,16 @@ def test_voice_note_flow(wa, graph, db, fake_pipeline):
     assert to_owner["to"] == OWNER
     buttons = [(b["reply"]["id"], b["reply"]["title"]) for b in to_owner["interactive"]["action"]["buttons"]]
     assert buttons == [("pc:4:12", "Order #12"), ("pc:4:15", "Order #15"), ("pc:4:no", "❌ Nahi")]
+
+
+def test_failed_client_summary_still_sends_owner_buttons(wa, graph, db, fake_pipeline):
+    graph.reject_to.add(CLIENT)
+
+    whatsapp.process_webhook(voice_payload(), wa=wa, db=db)
+
+    to_client, to_owner = graph.messages()
+    assert to_client["to"] == CLIENT
+    assert to_owner["to"] == OWNER and to_owner["type"] == "interactive"
 
 
 def test_repeated_webhook_is_processed_once(wa, db, fake_pipeline):

@@ -52,7 +52,7 @@ All of them speak Hinglish or a local language, mostly on phone audio with machi
 | :---- | :---- | :---- |
 | Voice note to order book | Client sends a WhatsApp voice note, system pulls out orders, quantities, rates, dates and follow-ups | Core |
 | Order matching | Decides if something is a new order or an update to an old one, and which one | Core |
-| Owner confirmation | Low-confidence items go to the owner on WhatsApp with Yes / Edit buttons | Core |
+| Owner confirmation | Low-confidence items go to the owner on WhatsApp with buttons: one per candidate order (max 2) and/or "Naya order", plus "Nahi" to reject | Core |
 | Audio proof | Every order and change links to the exact clip where the client said it | Core |
 | Dashboard | Orders, change history, upcoming deliveries, playable proof clips | Core |
 | Client confirmation | Client gets a short WhatsApp summary of what was agreed | Core |
@@ -68,7 +68,7 @@ All of them speak Hinglish or a local language, mostly on phone audio with machi
 What happens next
 
 1. Voice note reaches Recall's WhatsApp number  
-2. Prisma transcribes it with segment timestamps  
+2. Silero VAD splits it into chunks of up to 30 s, Prisma transcribes each chunk, and the chunk offsets become the timestamps  
 3. LLM pulls out two items: an update (brackets 200 to 300\) and a new order (50 pcs, 3mm MS sheet, Friday)  
 4. Matcher finds the client's open bracket order and links the update to it  
 5. Both items are confident, so they go straight to the order book with their audio clips  
@@ -80,21 +80,21 @@ If the client has two open bracket orders, the matcher can't pick one. The owner
 
 ## System design
 
-Flow: Client voice note → WhatsApp Cloud API → FastAPI backend (webhook on Render) → Prisma STT (segment timestamps) → LLM extraction (Groq, JSON output) → Order matcher (new or update?) → Sure?
+Flow: Client voice note → WhatsApp Cloud API → FastAPI backend (webhook) → Silero VAD chunks → Prisma STT → LLM extraction (Groq, JSON output) → Order matcher (new or update?) → Sure?
 
 * **Yes:** goes straight to the order book (Postgres + audio clips)  
 * **No:** owner confirms on WhatsApp buttons, then it goes to the order book
 
-From the order book: the dashboard (Next.js on Vercel) shows everything, and Evon builds the day's summary each night, which Timbre turns into the owner's voice briefing.  
+From the order book: the dashboard (Next.js on Vercel) shows everything, and `POST /briefing/send` builds a short summary of today's and tomorrow's deliveries and pending items, which Timbre turns into the owner's voice briefing. Any scheduler can call that endpoint each morning.  
 A voice note goes through Prisma, then the LLM pulls out structured items, and the matcher decides if each one is new or an update. Only confident items go straight to the order book. The rest wait for the owner's tap. The webhook returns 200 instantly and does all of this in a background task, so slow steps never block WhatsApp.
 
 ## Gnani models
 
 | Model | Used for | Notes |
 | :---- | :---- | :---- |
-| Prisma v2.5 (STT) | Transcribing voice notes and calls | REST for clips up to 30 s (voice notes are split with Silero VAD into chunks, our own chunk offsets power the audio proof clips). Batch for long calls, gives segment start/end times and speaker labels. Supports Hinglish and 8 kHz phone audio |
-| Timbre v2.5 (TTS) | Morning briefing, voice Q&A replies, confirmations | Outputs OGG/Opus, which WhatsApp plays directly as a voice note. Has Hinglish voices |
-| Evon v3.3 (LLM) | Nightly summary of the day's orders and changes | Not on the API yet. Run a 4-bit version on Kaggle's free GPUs as a scheduled job |
+| Prisma v3.0 (STT) | Transcribing voice notes | REST only, clips up to 30 s. Voice notes are split with Silero VAD into chunks, and our own chunk offsets power the audio proof clips. `language_code=hi-IN,en-IN`, `format=codemix`, per-client `keyterms`. The Batch API (long calls, speaker labels) is not used in this build |
+| Timbre v2.5 (TTS) | Morning briefing, voicing the synthetic eval set | Outputs OGG/Opus, which WhatsApp plays directly as a voice note. Hinglish voice Poorvi |
+| Evon v3.3 (LLM) | Not in this build | Planned for a nightly summary on Kaggle's free GPUs. Not on the API yet |
 
 Live extraction runs on Groq (Gemini as fallback) because it needs to be fast and always on. All LLMs sit behind one client so we can swap with one setting.
 
@@ -105,11 +105,10 @@ Live extraction runs on Groq (Gemini as fallback) because it needs to be fast an
 | Messaging | WhatsApp Cloud API, Meta test number | Up to 5 verified recipients, no SIM or card needed |
 | Speech | Gnani Prisma + Timbre | 5,000 programme credits |
 | Live LLM | Groq, Gemini Flash-Lite as fallback | Daily request and token caps, never add a card |
-| Nightly LLM | Evon on Kaggle 2x T4 | About 30 GPU hours a week |
-| Backend | FastAPI on Render | Sleeps after 15 min idle, about 1 min to wake |
+| Backend | FastAPI, run locally behind ngrok for the demo (Render free tier for hosting) | Render sleeps after 15 min idle, about 1 min to wake. Needs ffmpeg on the host |
 | Database + audio | Supabase Postgres + Storage | 500 MB DB, 1 GB files, pauses after a week idle |
 | Dashboard | Next.js on Vercel | Hobby tier |
-| Scheduler | GitHub Actions cron | Can run a few minutes late |
+| Scheduler | GitHub Actions cron for the daily Supabase keepalive. The briefing is `POST /briefing/send`, callable by any scheduler | Can run a few minutes late |
 | Audio tools | ffmpeg, Silero VAD | Local, free |
 
 Rule for the team: no credit card on any service. If a signup asks for one, we skip it.
@@ -123,36 +122,36 @@ Rule for the team: no credit card on any service. If a signup asks for one, we s
 | orders | id, client\_id, item, spec, quantity, rate, delivery\_date, status | The current state of each order |
 | order\_changes | id, order\_id, call\_id, field, old\_value, new\_value, clip\_start, clip\_end, confidence | Append-only history. Every change points to the call and the exact clip |
 | pending\_confirmations | id, call\_id, extracted\_json, question, status | Items waiting for the owner's tap |
-| reminders | id, order\_id, due\_at, sent | Delivery reminders and briefing items |
+| reminders | id, order\_id, due\_at, sent | In the schema for delivery reminders, not used in this build. The briefing reads orders directly |
 
 Orders are never edited without a matching row in order\_changes, so the audit trail is always complete.
 
 ## Evaluation
 
-We build a test set of 20 to 30 synthetic calls once and run every change against it.  
-**How the test set is made:** scripts written with the LLM (fake names and numbers), voiced with two Timbre Hinglish voices, then mixed with factory and traffic noise and squeezed to 8 kHz phone quality using ffmpeg. Noise mixing is local, so it costs no credits.  
+The test set is 10 synthetic Hinglish voice notes (`eval/cases.json`), built once and run against every change.  
+**How the test set is made:** short scripts with fake names and numbers, voiced with two Timbre Hinglish voices. A second copy of each is band-limited, mixed with generated noise (10 dB SNR, 3 dB for the noisy case) and squeezed to 8 kHz phone quality using ffmpeg. Noise mixing is local, so it costs no credits.  
 **Cases covered:** simple new order, quantity change, rate change, date change, two items in one call, an ambiguous update, a noisy call.  
 What we measure:
 
-* Transcription error rate (WER) on clean vs noisy audio  
+* Transcription error rate (WER and CER) on clean vs noisy audio  
 * Extraction accuracy: item, quantity, rate and date all correct  
 * Matching accuracy: update linked to the right order  
 * Confirmation rate: how often the system asks the owner  
-* Time from voice note received to order on dashboard
+* Latency: Prisma, extract + match, and total
 
-Targets get set after the first run, once we know the baseline. The final numbers go in the demo and the write-up.
+Results are written to `eval/results.md` and copied into the README.
 
 ## Risks and mitigations
 
 | Risk | Mitigation |
 | :---- | :---- |
 | Gnani credits run out faster than expected (rate is not published) | Measure on day 1 with one 30 s clip. Cache transcripts by audio hash, trim silence first, pre-render fixed Timbre phrases, mock APIs in tests |
-| Morning briefing needs a paid WhatsApp template if the owner was silent for 24 h | Evening message ends with a one-tap reply that keeps the free window open |
+| Morning briefing and owner buttons need a paid WhatsApp template if the owner was silent for 24 h | Not handled in code. Before a demo, the owner messages the number once to open the free window |
 | Service replies stop after 1,000 a month without a card | Hard daily send cap in code |
-| Render cold start makes the first webhook fail | Return 200 instantly, process in background, ping every 10 min during demos |
-| Evon won't run on free T4 GPUs | Keep Evon to the nightly summary only. Live extraction stays on Groq |
+| Render cold start makes the first webhook fail | Return 200 instantly and process in the background. The demo runs the backend locally behind ngrok |
+| Evon won't run on free T4 GPUs | Evon is left out of this build. Live extraction stays on Groq |
 | Free LLM quota too small | Groq primary, Gemini Flash-Lite fallback, model name in one setting |
-| Supabase pauses before judging (after 10 Nov) | Daily ping from GitHub Actions |
+| Supabase pauses before judging (after 10 Nov) | Daily select from GitHub Actions (`.github/workflows/keepalive.yml`) |
 | WhatsApp live calling is hard to set up | Voice notes are the core. Live calls only if time is left |
 
 ## Timeline and team split
@@ -162,7 +161,7 @@ Targets get set after the first run, once we know the baseline. The final number
 1. **30 Oct to 1 Nov:** Prisma + Timbre test and credit check, WhatsApp test number live, webhook echoes transcripts back, repo and DB set up  
 2. **2 to 4 Nov:** extraction, order matching, owner confirmations, audio proof clips  
 3. **5 to 6 Nov:** dashboard, client confirmation, morning briefing  
-4. **7 Nov:** run the eval set, Evon nightly summary on Kaggle  
+4. **7 Nov:** run the eval set (Evon nightly summary dropped from this build)  
 5. **8 to 9 Nov:** demo video (60 s cut too), write-up, final posts  
 6. **10 Nov:** submit
 

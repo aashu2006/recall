@@ -23,7 +23,3 @@ test.wav
 
 # OS
 .DS_Store
-
-# Local agent notes
-CLAUDE.md
-.claude/

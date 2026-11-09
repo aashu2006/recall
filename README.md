@@ -32,7 +32,7 @@ A client sends a voice note like this one:
 5. **Matcher.** For each item, the matcher decides between a new order and an update to an open order, and which one. An update is applied only if there is exactly one candidate order, confidence is at least 0.7, and the order's item name was actually said.
 6. **Order book or owner confirmation.** Confident items are saved to `orders`, and an `order_changes` row is written in the same transaction, linked to the call and the audio clip where it was said. Anything unsure goes to `pending_confirmations`. The owner then gets a WhatsApp message with buttons (for example "Brackets 200 to 300: order #12 or #15?"), and nothing is saved until they tap. The client gets a short WhatsApp summary of what was recorded.
 7. **Dashboard.** Shows deliveries due today and tomorrow, open orders, each order's change history with a playable audio clip for every change, recent calls with transcripts, and pending confirmations.
-8. **Morning briefing.** Every morning a scheduled job calls `POST /briefing/send`. Recall writes a short Hinglish summary of today's and tomorrow's deliveries and pending items, Timbre turns it into an OGG/Opus voice note, and it is sent to the owner on WhatsApp.
+8. **Morning briefing.** The briefing is triggered with `POST /briefing/send`, so any scheduler can call it each morning. Recall writes a short Hinglish summary of today's and tomorrow's deliveries and pending items, Timbre turns it into an OGG/Opus voice note, and it is sent to the owner on WhatsApp.
 
 Rules the code follows:
 
@@ -60,7 +60,7 @@ flowchart LR
     OW -->|tap| DB
     DB --> CS[Client WhatsApp summary]
     DB --> D[Next.js dashboard<br/>on Vercel]
-    CRON[Scheduled job<br/>each morning] --> B[POST /briefing/send]
+    CRON[Any scheduler<br/>each morning] --> B[POST /briefing/send]
     B --> DB
     B --> TB[Gnani Timbre TTS<br/>OGG/Opus]
     TB --> OV[Owner gets a<br/>voice note briefing]
@@ -123,7 +123,7 @@ Numbers come from `eval/results.md`.
 | Backend | Python, FastAPI on Render |
 | Database and audio | Supabase Postgres and Storage |
 | Dashboard | Next.js and Tailwind on Vercel (Hobby) |
-| Scheduler | GitHub Actions cron |
+| Scheduler | GitHub Actions cron, daily Supabase keepalive only (`.github/workflows/keepalive.yml`). The briefing is a plain `POST /briefing/send` that any scheduler can call |
 | Audio tools | ffmpeg, Silero VAD (run locally) |
 | Python tooling | uv, pytest |
 
@@ -131,7 +131,9 @@ Numbers come from `eval/results.md`.
 
 You need Python 3.12+, [uv](https://docs.astral.sh/uv/), Node.js, ffmpeg, and free accounts for Gnani, Meta (WhatsApp Cloud API test number), Groq, Google AI Studio (Gemini) and Supabase.
 
-**1. Config.** Copy the example env file and fill it in. Also set `CRON_SECRET` to any random string (used by `/briefing/send`).
+**ffmpeg is required by the backend.** It runs `ffmpeg` and `ffprobe` on every voice note (converting audio for Silero VAD and cutting proof clips), so both must be on `PATH` wherever the backend runs. The demo runs the backend locally behind ngrok.
+
+**1. Config.** Copy the example env file and fill it in. Set `CRON_SECRET` to any random string (used by `/briefing/send`).
 
 ```bash
 cp .env.example .env
@@ -174,6 +176,10 @@ npm run dev                              # http://localhost:3000
 curl -X POST http://localhost:8000/briefing/send -H "Authorization: Bearer $CRON_SECRET"
 ```
 
+The repo doesn't schedule this. Point any scheduler (cron, a GitHub Actions workflow, cron-job.org) at it each morning.
+
+**Supabase keepalive.** Free Supabase projects pause after a week idle. `.github/workflows/keepalive.yml` runs one small select a day. Add `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` as repo secrets in GitHub.
+
 **7. Evaluation.** Asks before spending any credits. Transcripts are cached, so re-runs are free.
 
 ```bash
@@ -188,7 +194,8 @@ backend/               FastAPI app: webhook, STT, extraction, matcher, pipeline,
 dashboard/             Next.js order book
 supabase/migrations/   SQL schema
 eval/                  Synthetic voice notes, noise mixing, scoring
-docs/                  PRD and Gnani API notes
+docs/                  PRD, Gnani API notes, demo script
+.github/workflows/     daily Supabase keepalive
 ```
 
 ## Team

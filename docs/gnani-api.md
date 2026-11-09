@@ -9,8 +9,8 @@ Source: https://docs.gnani.ai/api/introduction/introduction (checked 6 Nov 2026)
 - Python SDK: `pip install -U "gnani-vachana>=0.8.1"` (Python 3.10+, reads `GNANI_API_KEY` from env). We call the REST APIs with `httpx` directly so tests are easy to mock, SDK is optional.
 - Languages: `bn-IN`, `en-IN`, `gu-IN`, `hi-IN`, `kn-IN`, `ml-IN`, `mr-IN`, `pa-IN`, `ta-IN`, `te-IN`
 
-## Important for Recall (differs from PRD)
-1. **REST STT max audio is 30 s**, not 60 s. Longer audio returns `400 MAX_AUDIO_DURATION_EXCEEDED`.
+## Important for Recall
+1. **REST STT max audio is 30 s.** Longer audio returns `400 MAX_AUDIO_DURATION_EXCEEDED`.
 2. **REST STT gives no segment timestamps.** Only Batch gives `start_time` / `end_time` per segment.
 3. Plan for audio proof clips:
    - Default: split the voice note with Silero VAD into utterances (each <= 30 s), send each chunk to REST STT, keep our own start/end offsets per chunk. This gives timestamps and stays fast.

@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
     llm_timeout: float = 30.0
 
-    # Bearer token for POST /briefing/send (GitHub Actions cron)
+    # Bearer token for POST /briefing/send (any scheduler can call it)
     cron_secret: str = ""
 
     # Supabase

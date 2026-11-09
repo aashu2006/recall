@@ -5,8 +5,7 @@
 - cut_clip: cut an MP3 proof clip from segment start/end timestamps.
 
 Clips are stored in the Supabase "audio" bucket and linked from order_changes.
-
-TODO: the Render deploy needs ffmpeg on the box (Dockerfile later).
+Needs ffmpeg and ffprobe on PATH (see README).
 """
 
 import subprocess
