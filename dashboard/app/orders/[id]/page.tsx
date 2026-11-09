@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Badge, Card, Empty, SectionTitle } from "@/components/ui";
+import { Badge, Empty, Register, SectionTitle, SummaryRow } from "@/components/ui";
 import { signAudio } from "@/lib/audio";
 import {
   fieldLabel,
@@ -13,6 +13,7 @@ import {
   fmtRate,
   fmtTime,
   manualLabel,
+  TZ,
 } from "@/lib/format";
 import { Highlight } from "@/lib/highlight";
 import { db, must } from "@/lib/supabase";
@@ -48,67 +49,63 @@ export default async function OrderPage({ params }: Params) {
 
   return (
     <>
-      <Link href="/" className="inline-flex items-center gap-1.5 rounded text-sm text-muted transition-colors hover:text-ink">
+      <Link href="/" className="inline-flex items-center gap-1.5 rounded text-sm text-soft transition-colors hover:text-ink">
         <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
           <path d="M10 3.5 5.5 8l4.5 4.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         Order book
       </Link>
 
-      <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
+      <div className="mt-4 mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm text-muted">
-            {client}, order #{order.id}
+          <p className="text-[15px] text-soft">
+            {client}, order <span className="num">#{order.id}</span>
           </p>
-          <h1 className="mt-0.5 text-[26px] font-semibold tracking-tight sm:text-[34px]">
+          <h1 className="mt-1 font-serif text-[30px] leading-tight font-semibold tracking-tight sm:text-[38px]">
             {order.item}
-            {order.spec && <span className="font-normal text-muted"> {order.spec}</span>}
+            {order.spec && <span className="font-medium text-soft"> {order.spec}</span>}
           </h1>
         </div>
         <Badge status={order.status} />
       </div>
 
-      <dl key={order.updated_at} className="fresh mt-5 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-line py-4 sm:grid-cols-4">
-        <Fact label="Quantity" value={`${fmtNum(order.quantity)} ${order.unit ?? ""}`} />
-        <Fact label="Rate" value={fmtRate(order.rate, order.unit)} />
-        <Fact label="Delivery" value={fmtDate(order.delivery_date)} />
-        <Fact label="Last changed" value={fmtTime(order.updated_at)} />
-      </dl>
+      <div key={order.updated_at} className="fresh">
+        <SummaryRow
+          size="md"
+          stats={[
+            { label: "Quantity", value: `${fmtNum(order.quantity)} ${order.unit ?? ""}`.trim() },
+            { label: "Rate", value: fmtRate(order.rate, order.unit) },
+            { label: "Delivery", value: fmtDate(order.delivery_date) },
+            { label: "Last changed", value: fmtTime(order.updated_at) },
+          ]}
+        />
+      </div>
 
-      <div className="mt-10">
+      <div className="mt-12">
         <SectionTitle aside={`${changes.length} ${changes.length === 1 ? "entry" : "entries"}`}>
           What changed, and who said it
         </SectionTitle>
-        {events.length === 0 ? (
-          <Card>
+        <Register>
+          {events.length === 0 ? (
             <Empty>No changes recorded.</Empty>
-          </Card>
-        ) : (
-          <ol className="space-y-4">
-            {events.map((e, i) => (
-              <li key={e.key} className="fresh">
-                <EventCard
-                  event={e}
-                  client={client}
-                  latest={i === 0 && events.length > 1}
-                  audio={e.audioUrl ? (signed.get(e.audioUrl) ?? null) : null}
-                  unit={order.unit}
-                />
-              </li>
-            ))}
-          </ol>
-        )}
+          ) : (
+            <ol className="divide-y divide-rule">
+              {events.map((e, i) => (
+                <li key={e.key} className="fresh">
+                  <Entry
+                    event={e}
+                    client={client}
+                    latest={i === 0 && events.length > 1}
+                    audio={e.audioUrl ? (signed.get(e.audioUrl) ?? null) : null}
+                    unit={order.unit}
+                  />
+                </li>
+              ))}
+            </ol>
+          )}
+        </Register>
       </div>
     </>
-  );
-}
-
-function Fact({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-sm text-muted">{label}</dt>
-      <dd className="mt-0.5 text-[17px] font-semibold">{value}</dd>
-    </div>
   );
 }
 
@@ -124,7 +121,7 @@ interface ChangeEvent {
   changes: OrderChange[];
 }
 
-/** One voice note can change several fields at once (quantity and rate): show them as one event. */
+/** One voice note can change several fields at once (quantity and rate): show them as one entry. */
 function groupEvents(changes: OrderChange[]): ChangeEvent[] {
   const events = new Map<string, ChangeEvent>();
   for (const c of changes) {
@@ -147,7 +144,7 @@ function groupEvents(changes: OrderChange[]): ChangeEvent[] {
     e.changes.push(c);
     if (c.confidence != null) e.confidence = Math.min(e.confidence ?? 1, c.confidence);
   }
-  // Same field order in every event, the way the owner reads an order.
+  // Same field order in every entry, the way the owner reads an order.
   for (const e of events.values()) e.changes.sort((a, b) => fieldRank(a.field) - fieldRank(b.field) || a.id - b.id);
   return [...events.values()];
 }
@@ -166,7 +163,13 @@ function evidence(e: ChangeEvent): string | null {
   return text || null;
 }
 
-function EventCard({
+const dayOf = (ts: string) =>
+  new Date(ts).toLocaleDateString("en-IN", { timeZone: TZ, day: "numeric", month: "short" });
+const timeOf = (ts: string) =>
+  new Date(ts).toLocaleTimeString("en-IN", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true });
+
+/** One register entry: when (left column), what changed, and the recording that proves it. */
+function Entry({
   event: e,
   client,
   latest,
@@ -175,87 +178,82 @@ function EventCard({
 }: {
   event: ChangeEvent;
   client: string;
-  unit: string | null;
   latest: boolean;
   audio: string | null;
+  unit: string | null;
 }) {
   const fromCall = e.callId != null;
   const created = e.changes.find((c) => c.field === "created");
   const edits = e.changes.filter((c) => c.field !== "created");
   const said = fromCall ? evidence(e) : null;
+  const what = created
+    ? fromCall
+      ? `New order, from a voice note by ${client}`
+      : manualLabel("created")
+    : fromCall
+      ? `Changed in a voice note by ${client}`
+      : manualLabel(e.changes[0].field);
 
   return (
-    <Card className={`overflow-hidden ${latest ? "border-accent/45" : ""}`}>
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 pt-4 sm:px-5">
-        <p className="font-medium">
-          {created ? (fromCall ? "New order from a voice note" : manualLabel("created")) : fromCall ? "Updated from a voice note" : manualLabel(e.changes[0].field)}
-          {latest && <span className="ml-2 text-sm font-normal text-accent">Latest</span>}
-        </p>
-        <p className="text-sm text-muted">
-          {fmtTime(e.createdAt)}
-          {e.confidence != null && fromCall && <span> · {Math.round(e.confidence * 100)}% sure</span>}
-        </p>
-      </div>
+    <div className="grid gap-x-6 gap-y-2 px-4 py-5 sm:grid-cols-[96px_1fr] sm:px-5">
+      <p className="num text-sm text-soft sm:pt-0.5">
+        <span className="text-ink">{dayOf(e.createdAt)}</span>
+        <span className="ml-2 sm:ml-0 sm:block">{timeOf(e.createdAt)}</span>
+      </p>
 
-      <div className="px-4 pt-3 pb-4 sm:px-5">
+      <div className="min-w-0">
+        <p className="text-[15px] text-soft">
+          {what}
+          {latest && <span className="ml-2 font-medium text-red">Latest</span>}
+          {e.confidence != null && fromCall && <span className="num ml-2 text-[13px]">{Math.round(e.confidence * 100)}% sure</span>}
+        </p>
+
         {created && <CreatedValue value={created.new_value} />}
         {edits.length > 0 && (
-          <dl className="divide-y divide-line/70">
+          <dl className="mt-2 space-y-1.5">
             {edits.map((c) => (
               <Diff key={c.id} change={c} unit={unit} />
             ))}
           </dl>
         )}
-      </div>
 
-      {fromCall && (
-        <div className="grid gap-4 border-t border-line bg-raised/50 px-4 py-4 sm:px-5 md:grid-cols-[minmax(240px,320px)_1fr] md:gap-6">
-          <AudioPlayer
-            src={audio}
-            start={e.clipStart}
-            end={e.clipEnd}
-            size="lg"
-            label={e.clipStart != null ? `${client} saying it` : `${client}'s voice note`}
-          />
-          <div className="min-w-0">
-            {said ? (
-              <blockquote lang="hi" className="border-l-2 border-accent/60 pl-4 text-[17px] text-ink">
+        {fromCall && (
+          <div className="mt-4 space-y-3">
+            <AudioPlayer src={audio} start={e.clipStart} end={e.clipEnd} />
+            {said && (
+              <blockquote lang="hi" className="max-w-[70ch] text-[16px] text-ink/80">
                 &ldquo;<Highlight text={said} />&rdquo;
               </blockquote>
-            ) : (
-              <p className="text-sm text-muted">No transcript lines for this clip.</p>
             )}
             <Link
               href={`/calls#call-${e.callId}`}
-              className="mt-2 inline-block rounded text-sm text-muted underline decoration-line underline-offset-4 transition-colors hover:text-ink hover:decoration-muted"
+              className="inline-block rounded text-sm text-soft underline decoration-rule underline-offset-4 transition-colors hover:text-ink hover:decoration-ink/40"
             >
-              Full transcript of call #{e.callId}
+              Full transcript of call <span className="num">#{e.callId}</span>
             </Link>
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+      </div>
+    </div>
   );
 }
 
+/** Old value struck through in red ink, new value written in bold ink. */
 function Diff({ change: c, unit }: { change: OrderChange; unit: string | null }) {
-  const qtyUnit = c.field === "quantity" && unit ? unit : null;
   const delta = fmtDelta(c.field, c.old_value, c.new_value);
+  const qtyUnit = c.field === "quantity" && unit ? unit : null;
   return (
-    <div className="grid grid-cols-[minmax(84px,auto)_1fr] items-baseline gap-x-4 py-2.5 first:pt-0 last:pb-0 sm:grid-cols-[120px_1fr]">
-      <dt className="text-sm text-muted">{fieldLabel(c.field)}</dt>
+    <div className="grid grid-cols-[88px_1fr] items-baseline gap-x-3 sm:grid-cols-[110px_1fr]">
+      <dt className="text-[15px] text-soft">{fieldLabel(c.field)}</dt>
       <dd className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="text-[17px] text-was line-through decoration-was/50 decoration-[1.5px]">
+        <span className="num text-[18px] text-red line-through decoration-red decoration-[1.5px]">
           {fmtChangeValue(c.field, c.old_value)}
         </span>
-        <svg viewBox="0 0 20 12" className="h-3 w-5 self-center text-muted" fill="none" stroke="currentColor" strokeWidth="1.6" aria-label="changed to">
-          <path d="M1 6h17M13 1.5 18 6l-5 4.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        <span className="text-[28px] leading-tight font-semibold tracking-tight text-now sm:text-[32px]">
+        <span className="num text-[28px] leading-tight font-medium text-ink sm:text-[32px]">
           {fmtChangeValue(c.field, c.new_value)}
-          {qtyUnit && <span className="ml-1.5 text-base font-normal text-muted">{qtyUnit}</span>}
+          {qtyUnit && <span className="ml-1.5 font-sans text-base font-normal text-soft">{qtyUnit}</span>}
         </span>
-        {delta && <span className="rounded-full border border-line px-2 py-0.5 text-sm text-muted">{delta}</span>}
+        {delta && <span className="num text-sm text-soft">({delta})</span>}
       </dd>
     </div>
   );
@@ -268,7 +266,7 @@ function CreatedValue({ value }: { value: string | null }) {
     const parsed = value ? JSON.parse(value) : null;
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) obj = parsed;
   } catch {}
-  if (!obj) return value ? <p className="text-[15px]">{value}</p> : null;
+  if (!obj) return value ? <p className="mt-2 text-[15px]">{value}</p> : null;
 
   const unit = typeof obj.unit === "string" ? obj.unit : null;
   const entries = Object.entries(obj)
@@ -285,11 +283,11 @@ function CreatedValue({ value }: { value: string | null }) {
     ])
     .sort(([a], [b]) => fieldRank(a) - fieldRank(b));
   return (
-    <dl className="flex flex-wrap gap-2">
+    <dl className="mt-2 flex flex-wrap gap-x-7 gap-y-2">
       {entries.map(([k, v]) => (
-        <div key={k} className="rounded-lg border border-line px-3 py-1.5">
-          <dt className="text-xs text-muted">{fieldLabel(k)}</dt>
-          <dd className="font-medium">{v}</dd>
+        <div key={k}>
+          <dt className="text-sm text-soft">{fieldLabel(k)}</dt>
+          <dd className={`text-[17px] font-medium ${["quantity", "rate", "delivery_date"].includes(k) ? "num" : ""}`}>{v}</dd>
         </div>
       ))}
     </dl>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, Empty, PageTitle } from "@/components/ui";
+import { Badge, Empty, PageTitle, Register } from "@/components/ui";
 import { fmtDate, fmtNum, fmtRate, fmtTime } from "@/lib/format";
 import { Highlight } from "@/lib/highlight";
 import { db, must } from "@/lib/supabase";
@@ -24,19 +24,19 @@ export default async function PendingPage() {
       <PageTitle sub="When Recall isn't sure, it asks you on WhatsApp instead of guessing. Nothing is saved until you tap an answer.">
         Waiting for your answer
       </PageTitle>
-      {items.length === 0 ? (
-        <Card>
+      <Register>
+        {items.length === 0 ? (
           <Empty>All clear. Nothing is waiting for you.</Empty>
-        </Card>
-      ) : (
-        <ul className="grid gap-4 lg:grid-cols-2">
-          {items.map((p) => (
-            <li key={p.id} className="fresh">
-              <PendingCard p={p} />
-            </li>
-          ))}
-        </ul>
-      )}
+        ) : (
+          <ul className="divide-y divide-rule">
+            {items.map((p) => (
+              <li key={p.id} className="fresh">
+                <PendingEntry p={p} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </Register>
     </>
   );
 }
@@ -60,57 +60,59 @@ function extractedItem(data: Record<string, unknown> | null): ExtractedItem {
   return (inner && typeof inner === "object" ? inner : data) as ExtractedItem;
 }
 
-function PendingCard({ p }: { p: PendingConfirmation }) {
+function PendingEntry({ p }: { p: PendingConfirmation }) {
   const it = extractedItem(p.extracted_json);
   // The WhatsApp message puts the quote on its own line after the question; show it separately.
   const question = p.question.split("\n")[0];
-  const facts: [string, string][] = [];
-  if (it.item || it.order_ref) facts.push(["Item", [it.item ?? it.order_ref, it.spec].filter(Boolean).join(" ")]);
-  if (it.quantity != null) facts.push(["Quantity", `${fmtNum(it.quantity)} ${it.unit ?? ""}`.trim()]);
-  if (it.rate != null) facts.push(["Rate", fmtRate(it.rate, it.unit)]);
-  if (it.delivery_date) facts.push(["Delivery", fmtDate(it.delivery_date)]);
+  const facts: [string, string, boolean][] = [];
+  if (it.item || it.order_ref) facts.push(["Item", [it.item ?? it.order_ref, it.spec].filter(Boolean).join(" "), false]);
+  if (it.quantity != null) facts.push(["Quantity", `${fmtNum(it.quantity)} ${it.unit ?? ""}`.trim(), true]);
+  if (it.rate != null) facts.push(["Rate", fmtRate(it.rate, it.unit), true]);
+  if (it.delivery_date) facts.push(["Delivery", fmtDate(it.delivery_date), true]);
 
   return (
-    <Card className="flex h-full flex-col border-accent/35">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 pt-4 sm:px-5">
-        <p className="font-medium">{p.clients?.name ?? "Unknown client"}</p>
-        <p className="text-sm text-muted">
-          {fmtTime(p.created_at)}
+    <div className="grid gap-x-8 gap-y-3 px-4 py-5 sm:px-5 md:grid-cols-[230px_1fr]">
+      <div className="min-w-0">
+        <p className="text-[16px] font-medium">{p.clients?.name ?? "Unknown client"}</p>
+        <p className="text-sm text-soft">
+          <span className="num">{fmtTime(p.created_at)}</span>
           {p.call_id != null && (
             <>
               {", "}
-              <Link href={`/calls#call-${p.call_id}`} className="rounded underline decoration-line underline-offset-4 hover:text-ink">
-                call #{p.call_id}
+              <Link href={`/calls#call-${p.call_id}`} className="rounded underline decoration-rule underline-offset-4 hover:text-ink">
+                call <span className="num">#{p.call_id}</span>
               </Link>
             </>
           )}
         </p>
+        <p className="mt-2">
+          <Badge status="pending" />
+        </p>
       </div>
 
-      <div className="flex-1 px-4 pt-3 pb-4 sm:px-5">
-        <h2 className="text-[17px] leading-snug font-semibold">{question}</h2>
+      <div className="min-w-0">
+        <h2 className="max-w-[60ch] font-serif text-[19px] leading-snug font-semibold">{question}</h2>
         {it.evidence && (
-          <blockquote lang="hi" className="mt-3 border-l-2 border-accent/60 pl-4 text-[17px] text-ink/90">
+          <blockquote lang="hi" className="mt-2 max-w-[70ch] text-[16px] text-ink/80">
             &ldquo;<Highlight text={it.evidence} />&rdquo;
           </blockquote>
         )}
         {facts.length > 0 && (
-          <dl className="mt-4 flex flex-wrap gap-2">
-            {facts.map(([k, v]) => (
-              <div key={k} className="rounded-lg border border-line px-3 py-1.5">
-                <dt className="text-xs text-muted">{k}</dt>
-                <dd className="font-medium">{v}</dd>
+          <dl className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
+            {facts.map(([k, v, isNum]) => (
+              <div key={k}>
+                <dt className="text-sm text-soft">{k}</dt>
+                <dd className={`text-[16px] font-medium ${isNum ? "num" : ""}`}>{v}</dd>
               </div>
             ))}
           </dl>
         )}
+        <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-sm text-soft">Your options on WhatsApp</span>
+          <Options options={p.options} />
+        </div>
       </div>
-
-      <div className="border-t border-line bg-raised/50 px-4 py-3.5 sm:px-5">
-        <p className="mb-2.5 text-sm text-muted">Your options on WhatsApp</p>
-        <Options options={p.options} />
-      </div>
-    </Card>
+    </div>
   );
 }
 
@@ -120,26 +122,26 @@ function Options({ options }: { options: unknown }) {
     .map((o) => (typeof o === "object" && o !== null ? ((o as Record<string, unknown>).order_id ?? (o as Record<string, unknown>).id) : o))
     .filter((o): o is number | string => typeof o === "number" || typeof o === "string")
     .slice(0, 2);
-  const btn = "inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium";
+  const btn = "inline-flex items-center rounded-full border px-3.5 py-1 text-sm font-medium";
   return (
     <div className="flex flex-wrap gap-2">
       {opts.map((o) =>
         String(o) === "new" ? (
-          <span key="new" className={`${btn} border-line`}>
+          <span key="new" className={`${btn} border-ink/35`}>
             Naya order
           </span>
         ) : /^\d+$/.test(String(o)) ? (
           <Link
             key={o}
             href={`/orders/${o}`}
-            className={`${btn} border-line transition-colors duration-150 hover:border-accent hover:text-accent`}
+            className={`${btn} border-ink/35 transition-colors duration-150 hover:border-ink hover:bg-paper-2`}
             title={`Open order #${o}`}
           >
-            Order #{o}
+            Order <span className="num ml-1">#{o}</span>
           </Link>
         ) : null,
       )}
-      <span className={`${btn} border-line text-muted`}>Nahi</span>
+      <span className={`${btn} border-ink/20 text-soft`}>Nahi</span>
     </div>
   );
 }

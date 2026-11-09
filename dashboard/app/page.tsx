@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Card, Empty, PageTitle, SectionTitle, StatStrip } from "@/components/ui";
+import { Badge, Empty, PageTitle, Register, SectionTitle, SummaryRow } from "@/components/ui";
 import { fmtDate, fmtNum, fmtRate, istDate } from "@/lib/format";
 import { db, must } from "@/lib/supabase";
 import type { Order } from "@/lib/types";
@@ -21,7 +21,7 @@ async function load() {
   return { orders: must<Order[]>(orders), pendingCount: pending.count ?? 0 };
 }
 
-/** Changes whenever the order does, so the row remounts and fades in after a refresh. */
+/** Changes whenever the order does, so the entry remounts and fades in after a refresh. */
 const rowKey = (o: Order) => `${o.id}-${o.updated_at}`;
 
 export default async function Home() {
@@ -32,18 +32,20 @@ export default async function Home() {
   const dueTomorrow = orders.filter((o) => o.delivery_date === tomorrow);
   const overdue = orders.filter((o) => o.delivery_date && o.delivery_date < today).length;
   const clients = new Set(orders.map((o) => o.client_id)).size;
+  const dueLabel = (d: string | null) => (d === today ? "Today" : d === tomorrow ? "Tomorrow" : fmtDate(d));
 
   return (
     <>
       <PageTitle sub={fmtDate(today, true)}>Order book</PageTitle>
 
-      <StatStrip
+      <SummaryRow
         stats={[
           { label: "Open orders", value: orders.length, note: `${clients} ${clients === 1 ? "client" : "clients"}` },
           {
             label: "Deliveries today",
             value: dueToday.length,
             note: overdue ? `${overdue} overdue from earlier` : fmtDate(today),
+            alert: overdue > 0,
           },
           { label: "Deliveries tomorrow", value: dueTomorrow.length, note: fmtDate(tomorrow) },
           {
@@ -56,131 +58,127 @@ export default async function Home() {
         ]}
       />
 
-      <div className="mt-10 grid gap-8 lg:grid-cols-2 lg:gap-6">
-        <DeliveryDay title="Today" date={today} orders={dueToday} />
-        <DeliveryDay title="Tomorrow" date={tomorrow} orders={dueTomorrow} />
+      <div className="mt-12 grid gap-10 lg:grid-cols-2 lg:gap-8">
+        <DeliveryDay title="Deliver today" date={today} orders={dueToday} empty="Nothing due today." />
+        <DeliveryDay title="Deliver tomorrow" date={tomorrow} orders={dueTomorrow} empty="Nothing due tomorrow." />
       </div>
 
-      <div className="mt-10">
+      <div className="mt-12">
         <SectionTitle aside={`${orders.length} open`}>All open orders</SectionTitle>
-        <Card>{orders.length ? <OrdersTable orders={orders} today={today} /> : <Empty>No open orders yet.</Empty>}</Card>
+        <Register>
+          {orders.length ? <OrdersTable orders={orders} today={today} dueLabel={dueLabel} /> : <Empty>No open orders yet.</Empty>}
+        </Register>
       </div>
     </>
   );
 }
 
-function DeliveryDay({ title, date, orders }: { title: string; date: string; orders: Order[] }) {
+function DeliveryDay({ title, date, orders, empty }: { title: string; date: string; orders: Order[]; empty: string }) {
   return (
     <section>
-      <SectionTitle aside={fmtDate(date)}>Deliver {title.toLowerCase()}</SectionTitle>
-      {orders.length === 0 ? (
-        <Card>
-          <Empty>Nothing due {title.toLowerCase()}.</Empty>
-        </Card>
-      ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {orders.map((o) => (
-            <li key={rowKey(o)} className="fresh">
-              <JobCard order={o} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <SectionTitle aside={<span className="num">{fmtDate(date)}</span>}>{title}</SectionTitle>
+      <Register>
+        {orders.length === 0 ? (
+          <Empty>{empty}</Empty>
+        ) : (
+          <ul className="divide-y divide-rule">
+            {orders.map((o) => (
+              <li key={rowKey(o)} className="fresh">
+                <Link
+                  href={`/orders/${o.id}`}
+                  className="flex items-baseline justify-between gap-4 px-4 py-3.5 transition-colors duration-150 hover:bg-paper-2/70 sm:px-5"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[16px] font-medium">
+                      {o.item}
+                      {o.spec && <span className="font-normal text-soft"> {o.spec}</span>}
+                    </span>
+                    <span className="block truncate text-sm text-soft">{o.clients?.name ?? "Unknown client"}</span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="num block text-[22px] leading-tight">
+                      {fmtNum(o.quantity)}
+                      <span className="ml-1 font-sans text-sm text-soft">{o.unit}</span>
+                    </span>
+                    <span className="num block text-[13px] text-soft">{fmtRate(o.rate, o.unit)}</span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Register>
     </section>
   );
 }
 
-/** A delivery as a job card: who, what, how much. */
-function JobCard({ order: o }: { order: Order }) {
-  return (
-    <Link
-      href={`/orders/${o.id}`}
-      className="group flex h-full flex-col rounded-xl border border-line bg-surface p-4 transition-colors duration-150 hover:border-accent/60 hover:bg-raised/50"
-    >
-      <span className="truncate text-sm text-muted">{o.clients?.name ?? "Unknown client"}</span>
-      <span className="mt-0.5 truncate text-[17px] font-semibold">
-        {o.item}
-        {o.spec && <span className="font-normal text-muted"> {o.spec}</span>}
-      </span>
-      <span className="mt-auto flex items-baseline justify-between gap-3 pt-4">
-        <span className="text-[26px] leading-none font-semibold tracking-tight">
-          {fmtNum(o.quantity)}
-          <span className="ml-1 text-sm font-normal text-muted">{o.unit}</span>
-        </span>
-        <span className="text-sm text-muted">{fmtRate(o.rate, o.unit)}</span>
-      </span>
-    </Link>
-  );
-}
-
-function OrdersTable({ orders, today }: { orders: Order[]; today: string }) {
+function OrdersTable({ orders, today, dueLabel }: { orders: Order[]; today: string; dueLabel: (d: string | null) => string }) {
   const overdue = (o: Order) => o.status === "open" && !!o.delivery_date && o.delivery_date < today;
-  const dueLabel = (o: Order) =>
-    o.delivery_date === today ? "Today" : o.delivery_date === istDate(1) ? "Tomorrow" : fmtDate(o.delivery_date);
   return (
     <>
-      {/* Phones: one row per order */}
-      <ul className="divide-y divide-line sm:hidden">
+      {/* Phones: one ruled entry per order */}
+      <ul className="divide-y divide-rule sm:hidden">
         {orders.map((o) => (
           <li key={rowKey(o)} className="fresh">
-            <Link href={`/orders/${o.id}`} className="block px-4 py-3.5 active:bg-raised">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-medium">
-                    {o.item} {o.spec && <span className="font-normal text-muted">{o.spec}</span>}
-                  </p>
-                  <p className="truncate text-sm text-muted">{o.clients?.name ?? "Unknown client"}</p>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold">
-                    {fmtNum(o.quantity)} <span className="text-sm font-normal text-muted">{o.unit}</span>
-                  </p>
-                  <p className="text-sm text-muted">{fmtRate(o.rate, o.unit)}</p>
-                </div>
+            <Link href={`/orders/${o.id}`} className="block px-4 py-3.5 active:bg-paper-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 truncate font-medium">
+                  {o.item} {o.spec && <span className="font-normal text-soft">{o.spec}</span>}
+                </p>
+                <p className="num shrink-0">
+                  {fmtNum(o.quantity)} <span className="font-sans text-sm text-soft">{o.unit}</span>
+                </p>
               </div>
-              <p className={`mt-1.5 text-sm ${overdue(o) ? "text-was" : "text-muted"}`}>
+              <div className="mt-0.5 flex items-baseline justify-between gap-3 text-sm">
+                <p className="min-w-0 truncate text-soft">{o.clients?.name ?? "Unknown client"}</p>
+                <p className="num shrink-0 text-soft">{fmtRate(o.rate, o.unit)}</p>
+              </div>
+              <p className={`mt-1 text-sm ${overdue(o) ? "text-red" : "text-soft"}`}>
                 {overdue(o) ? "Overdue, was due " : "Due "}
-                {dueLabel(o).replace(/^(Today|Tomorrow)$/, (d) => d.toLowerCase())}
+                <span className="num">{dueLabel(o.delivery_date).replace(/^(Today|Tomorrow)$/, (d) => d.toLowerCase())}</span>
               </p>
             </Link>
           </li>
         ))}
       </ul>
 
-      {/* Tablets and up: table */}
+      {/* Tablets and up: the register */}
       <div className="hidden overflow-x-auto sm:block">
         <table className="w-full text-left text-[15px]">
           <thead>
-            <tr className="border-b border-line text-sm text-muted">
-              <th className="px-5 py-3 font-medium">Client</th>
-              <th className="px-3 py-3 font-medium">Item</th>
-              <th className="px-3 py-3 text-right font-medium">Quantity</th>
-              <th className="px-3 py-3 text-right font-medium">Rate</th>
-              <th className="px-3 py-3 font-medium">Delivery</th>
-              <th className="px-5 py-3 font-medium">
+            <tr className="border-b-[3px] border-double border-ink/30 text-sm text-soft">
+              <th className="px-5 py-2.5 font-medium">Client</th>
+              <th className="px-3 py-2.5 font-medium">Item</th>
+              <th className="px-3 py-2.5 text-right font-medium">Quantity</th>
+              <th className="px-3 py-2.5 text-right font-medium">Rate</th>
+              <th className="px-3 py-2.5 font-medium">Delivery</th>
+              <th className="px-5 py-2.5 font-medium">
                 <span className="sr-only">Status</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody className="divide-y divide-rule">
             {orders.map((o) => (
-              <tr key={rowKey(o)} className="fresh group relative transition-colors duration-150 hover:bg-raised/60">
+              <tr key={rowKey(o)} className="fresh group relative transition-colors duration-150 hover:bg-paper-2/70">
                 <td className="px-5 py-3">
                   {/* The stretched link makes the whole row clickable. */}
-                  <Link href={`/orders/${o.id}`} className="font-medium after:absolute after:inset-0 group-hover:text-accent">
+                  <Link
+                    href={`/orders/${o.id}`}
+                    className="font-medium after:absolute after:inset-0 group-hover:underline group-hover:underline-offset-4"
+                  >
                     {o.clients?.name ?? "Unknown"}
                   </Link>
                 </td>
                 <td className="px-3 py-3">
                   {o.item}
-                  {o.spec && <span className="ml-1.5 text-muted">{o.spec}</span>}
+                  {o.spec && <span className="ml-1.5 text-soft">{o.spec}</span>}
                 </td>
-                <td className="px-3 py-3 text-right whitespace-nowrap">
-                  <span className="font-medium">{fmtNum(o.quantity)}</span>
-                  <span className="ml-1 text-sm text-muted">{o.unit ?? ""}</span>
+                <td className="num px-3 py-3 text-right whitespace-nowrap">
+                  {fmtNum(o.quantity)}
+                  <span className="ml-1 font-sans text-sm text-soft">{o.unit ?? ""}</span>
                 </td>
-                <td className="px-3 py-3 text-right whitespace-nowrap">{fmtRate(o.rate)}</td>
-                <td className={`px-3 py-3 whitespace-nowrap ${overdue(o) ? "text-was" : ""}`}>{dueLabel(o)}</td>
+                <td className="num px-3 py-3 text-right whitespace-nowrap">{fmtRate(o.rate)}</td>
+                <td className={`num px-3 py-3 whitespace-nowrap ${overdue(o) ? "text-red" : ""}`}>{dueLabel(o.delivery_date)}</td>
                 <td className="px-5 py-3 text-right">{overdue(o) && <Badge status="overdue" />}</td>
               </tr>
             ))}

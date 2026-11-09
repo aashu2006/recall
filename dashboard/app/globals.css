@@ -1,68 +1,57 @@
 @import "tailwindcss";
 
-/* Light tokens: daylight on the shop floor. Dark tokens: graphite steel with brass. */
+/* The owner's order register (bahi-khata): warm paper, ink-blue writing, faint ruled lines,
+   red ink for the margin and for anything that changed or is late. Paper is always light. */
 :root {
-  --bg: #f3f4f2;
-  --surface: #ffffff;
-  --raised: #eceeeb;
-  --ink: #161b21;
-  --muted: #5f6b78;
-  --line: #d9dde0;
-  --accent: #a8650a;
-  --accent-ink: #1a1306;
-  --was: #b0452c;
-  --now: #13804f;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #11151a;
-    --surface: #181e25;
-    --raised: #1f2730;
-    --ink: #e7eaee;
-    --muted: #8d98a6;
-    --line: #2b3541;
-    --accent: #e3a33b;
-    --accent-ink: #1a1306;
-    --was: #d98068;
-    --now: #5cc49a;
-  }
+  --paper: #faf6ec;
+  --paper-2: #f2ecdc;
+  --ink: #1f2f57;
+  --ink-soft: #66708a;
+  --rule: #d6d9e2;
+  --red: #b0392c;
+  --green: #3d7a4e;
+  --line-h: 2rem; /* ruled transcript line spacing */
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-raised: var(--raised);
+  --color-paper: var(--paper);
+  --color-paper-2: var(--paper-2);
   --color-ink: var(--ink);
-  --color-muted: var(--muted);
-  --color-line: var(--line);
-  --color-accent: var(--accent);
-  --color-accent-ink: var(--accent-ink);
-  --color-was: var(--was);
-  --color-now: var(--now);
+  --color-soft: var(--ink-soft);
+  --color-rule: var(--rule);
+  --color-red: var(--red);
+  --color-green: var(--green);
   --font-sans: var(--font-plex), var(--font-plex-deva), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-plex-serif), var(--font-plex-deva), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html {
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
 body {
-  background: var(--bg);
+  background: var(--paper);
   color: var(--ink);
-  font-feature-settings: "tnum" 1;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+/* Figures: quantities, rates, dates, clip times. */
+.num {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 0;
+  letter-spacing: -0.01em;
+}
+
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::selection {
-  background: color-mix(in oklab, var(--accent) 35%, transparent);
+  background: color-mix(in oklab, var(--ink) 18%, transparent);
 }
 
 /* Devanagari needs more room above and below than Latin. */
@@ -70,8 +59,16 @@ body {
   line-height: 1.85;
 }
 
+/* A transcript written on ruled paper: one faint line per text line. */
+.ruled {
+  line-height: var(--line-h);
+  background-image: linear-gradient(to bottom, transparent calc(var(--line-h) - 1px), var(--rule) calc(var(--line-h) - 1px));
+  background-size: 100% var(--line-h);
+  background-position: 0 2px;
+}
+
 /* Fresh data: an element keyed by its data remounts only when that data changes, so after an
-   auto refresh only the rows that changed fade in. */
+   auto refresh only the entries that changed fade in. */
 @keyframes fresh {
   from {
     opacity: 0.3;

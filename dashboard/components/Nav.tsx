@@ -12,7 +12,7 @@ const LINKS = [
 export default function Nav() {
   const path = usePathname();
   return (
-    <nav className="flex gap-1">
+    <nav className="-mb-px flex gap-6">
       {LINKS.map(({ href, label }) => {
         const active = href === "/" ? path === "/" || path.startsWith("/orders") : path.startsWith(href);
         return (
@@ -20,12 +20,11 @@ export default function Nav() {
             key={href}
             href={href}
             aria-current={active ? "page" : undefined}
-            className={`relative rounded-md px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
-              active ? "bg-raised text-ink" : "text-muted hover:bg-raised/60 hover:text-ink"
+            className={`border-b-2 pb-2.5 text-[15px] transition-colors duration-150 sm:pb-3.5 ${
+              active ? "border-ink font-medium text-ink" : "border-transparent text-soft hover:border-rule hover:text-ink"
             }`}
           >
             {label}
-            {active && <span className="absolute inset-x-3 -bottom-[13px] h-0.5 rounded-full bg-accent max-sm:hidden" />}
           </Link>
         );
       })}

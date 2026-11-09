@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import AudioPlayer from "@/components/AudioPlayer";
-import { Card, Empty, PageTitle } from "@/components/ui";
+import { Empty, PageTitle, Register } from "@/components/ui";
 import { signAudio } from "@/lib/audio";
 import { fmtTime } from "@/lib/format";
 import { Highlight } from "@/lib/highlight";
@@ -24,48 +24,47 @@ export default async function CallsPage() {
 
   return (
     <>
-      <PageTitle sub="Every voice note, with what Recall heard. Quantities and rates are marked in colour, items are underlined.">
+      <PageTitle sub="Every voice note, written down as Recall heard it. Quantities and rates are in bold, items are underlined.">
         Calls
       </PageTitle>
-      {calls.length === 0 ? (
-        <Card>
+      <Register>
+        {calls.length === 0 ? (
           <Empty>No calls yet. Send a voice note to the Recall WhatsApp number.</Empty>
-        </Card>
-      ) : (
-        <ul className="space-y-4">
-          {calls.map((c) => (
-            <li key={`${c.id}-${c.transcript == null ? "p" : "t"}`} id={`call-${c.id}`} className="fresh scroll-mt-24">
-              <Card className="overflow-hidden transition-colors duration-300 [:target>&]:border-accent/70">
-                <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-[220px_1fr] md:gap-8">
-                  <div className="min-w-0 space-y-3">
+        ) : (
+          <ul className="divide-y divide-rule">
+            {calls.map((c) => (
+              <li
+                key={`${c.id}-${c.transcript == null ? "p" : "t"}`}
+                id={`call-${c.id}`}
+                className="fresh scroll-mt-28 transition-colors duration-500 target:bg-paper-2"
+              >
+                <div className="grid gap-x-8 gap-y-3 px-4 py-5 sm:px-5 md:grid-cols-[230px_1fr]">
+                  <div className="min-w-0 space-y-2.5">
                     <div>
-                      <p className="truncate font-semibold">
+                      <p className="truncate text-[16px] font-medium">
                         {c.clients?.name ?? (c.from_phone ? `+${c.from_phone}` : "Unknown sender")}
                       </p>
-                      <p className="text-sm text-muted">
-                        {fmtTime(c.created_at)}, call #{c.id}
+                      <p className="text-sm text-soft">
+                        <span className="num">{fmtTime(c.created_at)}</span>, call <span className="num">#{c.id}</span>
                       </p>
                     </div>
-                    <AudioPlayer
-                      src={c.audio_url ? (signed.get(c.audio_url) ?? null) : null}
-                      duration={c.duration_seconds}
-                    />
+                    <AudioPlayer src={c.audio_url ? (signed.get(c.audio_url) ?? null) : null} duration={c.duration_seconds} />
                   </div>
                   {c.transcript == null ? (
-                    <p className="text-[15px] text-muted">Transcribing…</p>
+                    <p className="text-[15px] text-soft">Transcribing…</p>
                   ) : c.transcript.trim() === "" ? (
-                    <p className="text-[15px] text-muted">No speech found</p>
+                    <p className="text-[15px] text-soft">No speech found</p>
                   ) : (
-                    <p lang="hi" className="max-w-[68ch] text-[17px] whitespace-pre-wrap text-ink/90">
+                    <p lang="hi" className="ruled max-w-[68ch] text-[17px] whitespace-pre-wrap text-ink/80">
                       <Highlight text={c.transcript} />
                     </p>
                   )}
                 </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Register>
     </>
   );
 }

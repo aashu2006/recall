@@ -22,15 +22,10 @@ export default function AutoRefresh() {
 
   return (
     <span
-      className="flex items-center gap-2 rounded-full border border-line px-2.5 py-1 text-xs text-muted"
-      title={paused ? "Updates pause while audio plays" : "Updates every 10 seconds"}
+      className="flex items-center gap-2 text-sm text-soft"
+      title={paused ? "Updates pause while a recording plays" : "Updates every 10 seconds"}
     >
-      <span className="relative flex h-2 w-2">
-        {!paused && (
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-now opacity-50 motion-reduce:hidden" />
-        )}
-        <span className={`relative inline-flex h-2 w-2 rounded-full ${paused ? "bg-accent" : "bg-now"}`} />
-      </span>
+      <span className={`h-2 w-2 rounded-full ${paused ? "bg-red" : "bg-green motion-safe:animate-pulse"}`} />
       {paused ? "Paused" : "Live"}
     </span>
   );

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// Transcript highlighting: quantities, rates and units in brass, item names underlined.
+// Transcript highlighting: quantities, rates and units in bold ink, item names underlined in red ink.
 // Prisma's codemix output writes Hindi in Devanagari and English in Latin, so both are listed.
 // Presentation only: nothing here feeds extraction.
 
@@ -92,8 +92,8 @@ function resolveNumbers(toks: Tok[]): void {
 }
 
 const STYLE: Record<"num" | "item", string> = {
-  num: "rounded-sm bg-transparent font-semibold text-accent",
-  item: "bg-transparent font-medium text-ink underline decoration-accent/45 decoration-2 underline-offset-[5px]",
+  num: "bg-transparent font-semibold text-ink",
+  item: "bg-transparent text-ink underline decoration-red/60 decoration-[1.5px] underline-offset-[5px]",
 };
 
 /** Transcript text with numbers and item names marked up. */
