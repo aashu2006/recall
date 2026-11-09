@@ -178,25 +178,28 @@ Trim the playback to about 12 s in the edit if it runs long.
 
 ### Scene 7. Eval numbers (2:10–2:25)
 
-**On screen:** One clean slide built from `eval/results.md`. Fill in the numbers exactly from the file and don't round them up.
+**On screen:** One clean slide. The numbers come from `eval/results.md` (run on 9 Nov 2026, 16:14 IST). The 10 notes hold 12 order items, because two notes have two items each.
 
-| | Clean | Noisy (phone + factory noise) |
+| | Clean | Noisy (8 kHz phone + factory noise) |
 |---|---|---|
-| Transcription WER | `[__]%` | `[__]%` |
-| Extraction accuracy | `[__]/[__]` | `[__]/[__]` |
-| Matching accuracy | `[__]/[__]` | `[__]/[__]` |
-| Asked the owner | `[__]%` | `[__]%` |
-| Voice note → order | `[__] s` median | |
+| Transcription WER | 12.1% | 11.8% |
+| Extraction accuracy (item, qty, rate, date all right) | 10/12 | 11/12 |
+| Matching accuracy (right order updated) | 11/12 | 12/12 |
+| Sent to the owner instead of guessed | 2/12 | 1/12 |
+| Voice note → order | ~4.5 s median | |
 
-Footer: "10 synthetic Hinglish voice notes, voiced with Timbre, squeezed to 8 kHz with noise. No real customer data."
+Footer: "10 synthetic Hinglish voice notes, voiced with Timbre, squeezed to 8 kHz with noise. No real customer data. Latency is Prisma + LLM, without WhatsApp delivery."
 
 **Say:**
-> "Humne dus synthetic Hinglish voice notes pe test kiya, clean aur noisy phone audio dono pe. Extraction `[__]` mein se `[__]` sahi, matching `[__]` mein se `[__]` sahi, aur ambiguous note har baar owner ke paas gaya."
+> "Humne dus synthetic Hinglish voice notes pe test kiya, clean aur noisy phone audio pe. Baarah mein se das aur gyaarah items sahi nikle, aur matching gyaarah aur baarah sahi. Aur jab Recall sure nahi hota, wo guess nahi karta. Wo owner se poochta hai."
 
-Only say the last part if the eval shows it. Otherwise say how many times it did.
+Notes for the presenter:
+- The "doesn't guess" line is backed by the eval. The ambiguous note (Gupta's two MS sheet orders) went to the owner in both runs. In the clean run, one low-confidence new order also went to the owner instead of being saved. Nothing was guessed into the order book.
+- Don't say noise makes it better. Noisy scoring a little higher is chance on a 10-note set.
+- Say "around four and a half seconds". The exact medians are 4.6 s clean and 4.3 s noisy, without the database and WhatsApp time, so on the video the reply takes longer. Scene 3's overlay shows the real wait.
 
 **Ready before recording:**
-- [ ] `uv run --project backend --with jiwer python eval/run_eval.py` done, and `eval/results.md` reviewed
+- [x] Eval run, `eval/results.md` reviewed
 - [ ] Slide made with large text that is readable on a phone screen
 
 ### Scene 8. Close (2:25–2:30)
@@ -223,7 +226,7 @@ Same footage, tighter cuts, new voice-over. Record this narration separately aft
 | 4 | Dashboard + proof | 0:22–0:36 | Row updates to 300 / ₹42, the change cards, the clip plays for 3 s | "Order khud update: teen sau, bayalis rupaye. Aur har change ke saath client ki apni awaaz ka proof." |
 | 5 | Owner buttons | 0:36–0:46 | The button message, thumb taps Order #3 | "Confuse hua? To owner se poochta hai. Ek tap." |
 | 6 | Briefing | 0:46–0:52 | Briefing voice note, about 4 s of audio with captions | "Har subah, aaj ki deliveries ki voice briefing." |
-| 7 | Eval | 0:52–0:57 | The eval slide, two numbers highlighted (extraction, matching) | "Noisy Hinglish audio pe bhi `[__]` extraction accuracy." |
+| 7 | Eval | 0:52–0:57 | The eval slide, extraction (11/12 noisy) and matching (12/12 noisy) highlighted | "Noisy phone audio pe bhi baarah mein se gyaarah sahi. Sure nahi, to owner se poochta hai." |
 | 8 | Close | 0:57–1:00 | Logo card | "Recall. Bas bolo, order book ban jaati hai." |
 
 Short cut rules:
@@ -244,4 +247,4 @@ Film in story order, because each scene changes the DB the next one shows.
 
 If a take goes wrong in scenes 2–6: reset the DB, re-seed, and redo the Gupta prep note before retaking. Otherwise the ids and numbers on screen won't match.
 
-Last check before upload: no real phone numbers visible, no `.env` or keys in any terminal shot, and every number in scene 7 matches `eval/results.md`.
+Last check before upload: no real phone numbers visible, no `.env` or keys in any terminal shot, and every number in scene 7 matches `eval/results.md`. If the eval is re-run, update scene 7 from the new file.
