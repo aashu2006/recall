@@ -1,0 +1,125 @@
+{
+  "about": "Synthetic Hinglish voice notes for the seeded clients in backend/scripts/seed.py. No real customer data. script = Roman Hinglish text sent to Timbre (numbers as words). reference = how Prisma codemix should write it (Hindi in Devanagari, English in Latin), used for WER. Open orders are the seed's, with ids 1-6 in seed order (as in a fresh DB) and delivery dates = call date + seed days; extra_open_orders are added for that case only. delivery_in_days is relative to call_time; null means no date was said. Expected fields left null are not mentioned in the note.",
+  "call_time": "2026-11-09T10:30:00+05:30",
+  "voices": {"female": "Poorvi", "male": "Vikrant"},
+  "tts_language": "hi-en",
+  "default_noise_snr_db": 10,
+  "cases": [
+    {
+      "id": "C01",
+      "category": "new_order",
+      "client": "sharma",
+      "speaker": "female",
+      "script": "Namaste bhaiya, Sharma Steels se bol rahi hoon. Ek naya order likh lijiye. Base plate chahiye, das mm wali, ek sau pachaas piece. Rate ek sau bees rupaye piece. Parso tak bhej dena.",
+      "reference": "नमस्ते भैया, Sharma Steels से बोल रही हूँ। एक नया order लिख लीजिए। base plate चाहिए, दस mm वाली, एक सौ पचास piece। rate एक सौ बीस रुपये piece। परसों तक भेज देना।",
+      "expected": [
+        {"kind": "new_order", "item": "base plate", "spec": "10mm", "quantity": 150, "unit": "pcs", "rate": 120, "delivery_in_days": 2}
+      ]
+    },
+    {
+      "id": "C02",
+      "category": "new_order",
+      "client": "patel",
+      "speaker": "male",
+      "script": "Haan ji, Patel Engineering se bol raha hoon. MS angle chahiye, fifty by fifty by six, teen sau kilo. Rate chhiyasath rupaye kilo lagana. Thursday tak aa jana chahiye.",
+      "reference": "हाँ जी, Patel Engineering से बोल रहा हूँ। MS angle चाहिए, fifty by fifty by six, तीन सौ किलो। rate छियासठ रुपये किलो लगाना। Thursday तक आ जाना चाहिए।",
+      "expected": [
+        {"kind": "new_order", "item": "angle", "spec": "50x50x6", "quantity": 300, "unit": "kg", "rate": 66, "delivery_in_days": 3}
+      ]
+    },
+    {
+      "id": "C03",
+      "category": "quantity_change",
+      "client": "sharma",
+      "speaker": "female",
+      "script": "Bhaiya, Sharma Steels se. Wo angle wala order hai na, teen sau kilo wala, usko saadhe chaar sau kilo kar do. Baaki sab same rahega.",
+      "reference": "भैया, Sharma Steels से। वो angle वाला order है ना, तीन सौ किलो वाला, उसको साढ़े चार सौ किलो कर दो। बाकी सब same रहेगा।",
+      "expected": [
+        {"kind": "update", "item": "angle", "spec": null, "quantity": 450, "unit": "kg", "rate": null, "delivery_in_days": null, "order_id": 2}
+      ]
+    },
+    {
+      "id": "C04",
+      "category": "rate_change",
+      "client": "gupta",
+      "speaker": "male",
+      "script": "Gupta Fabricators se bol raha hoon. Channel ka jo order hai, uska rate aath sau nabbe se ghata ke aath sau saath kar do. Market neeche aa gaya hai.",
+      "reference": "Gupta Fabricators से बोल रहा हूँ। channel का जो order है, उसका rate आठ सौ नब्बे से घटा के आठ सौ साठ कर दो। market नीचे आ गया है।",
+      "expected": [
+        {"kind": "update", "item": "channel", "spec": null, "quantity": null, "unit": null, "rate": 860, "delivery_in_days": null, "order_id": 4}
+      ]
+    },
+    {
+      "id": "C05",
+      "category": "date_change",
+      "client": "patel",
+      "speaker": "female",
+      "script": "Patel Engineering se bol rahi hoon. Wo chhe inch flange wala order aaj mat bhejna, Thursday ko bhej dena. Abhi site ready nahi hai.",
+      "reference": "Patel Engineering से बोल रही हूँ। वो छह inch flange वाला order आज मत भेजना, Thursday को भेज देना। अभी site ready नहीं है।",
+      "expected": [
+        {"kind": "update", "item": "flange", "spec": null, "quantity": null, "unit": null, "rate": null, "delivery_in_days": 3, "order_id": 5}
+      ]
+    },
+    {
+      "id": "C06",
+      "category": "two_items",
+      "client": "sharma",
+      "speaker": "male",
+      "script": "Haan bhaiya, Sharma Steels se bol raha hoon. Wo do sau bracket wala order hai na, usko three hundred kar do. Aur ek naya order likho, three mm MS sheet ke fifty piece, rate do hazaar chaar sau, Friday tak chahiye.",
+      "reference": "हाँ भैया, Sharma Steels से बोल रहा हूँ। वो दो सौ bracket वाला order है ना, उसको three hundred कर दो। और एक नया order लिखो, three mm MS sheet के fifty piece, rate दो हज़ार चार सौ, Friday तक चाहिए।",
+      "expected": [
+        {"kind": "update", "item": "bracket", "spec": null, "quantity": 300, "unit": "pcs", "rate": null, "delivery_in_days": null, "order_id": 1},
+        {"kind": "new_order", "item": "MS sheet", "spec": "3mm", "quantity": 50, "unit": "pcs", "rate": 2400, "delivery_in_days": 4}
+      ]
+    },
+    {
+      "id": "C07",
+      "category": "two_items",
+      "client": "gupta",
+      "speaker": "female",
+      "script": "Gupta Fabricators se bol rahi hoon. Do cheezein likh lijiye. Pehli, flat bar forty by six, do sau kilo, rate baavan rupaye kilo, Wednesday tak. Doosri, base plate aath mm, ek sau bees piece, rate pachaanve rupaye, Saturday tak.",
+      "reference": "Gupta Fabricators से बोल रही हूँ। दो चीज़ें लिख लीजिए। पहली, flat bar forty by six, दो सौ किलो, rate बावन रुपये किलो, Wednesday तक। दूसरी, base plate आठ mm, एक सौ बीस piece, rate पचानवे रुपये, Saturday तक।",
+      "expected": [
+        {"kind": "new_order", "item": "flat bar", "spec": "40x6", "quantity": 200, "unit": "kg", "rate": 52, "delivery_in_days": 2},
+        {"kind": "new_order", "item": "base plate", "spec": "8mm", "quantity": 120, "unit": "pcs", "rate": 95, "delivery_in_days": 5}
+      ]
+    },
+    {
+      "id": "C08",
+      "category": "ambiguous_update",
+      "client": "gupta",
+      "speaker": "male",
+      "extra_open_orders": [
+        {"id": 101, "item": "MS sheet", "spec": "3mm", "quantity": 40, "unit": "pcs", "rate": 1400, "days": 3}
+      ],
+      "script": "Gupta ji bol raha hoon. Wo MS sheet wala order hai na, uski quantity do sau piece kar do. Rate wahi rakhna.",
+      "reference": "Gupta जी बोल रहा हूँ। वो MS sheet वाला order है ना, उसकी quantity दो सौ piece कर दो। rate वही रखना।",
+      "expected": [
+        {"kind": "update", "item": "MS sheet", "spec": null, "quantity": 200, "unit": "pcs", "rate": null, "delivery_in_days": null, "order_id": null, "expect_confirmation": true, "candidates": [3, 101]}
+      ]
+    },
+    {
+      "id": "C09",
+      "category": "noisy",
+      "client": "sharma",
+      "speaker": "female",
+      "noise_snr_db": 3,
+      "script": "Bhaiya, Sharma Steels. Bracket wale order ka rate chaalees kar do, aur delivery Saturday tak kar dena. Machine chal rahi hai, dhyan se sun lena.",
+      "reference": "भैया, Sharma Steels। bracket वाले order का rate चालीस कर दो, और delivery Saturday तक कर देना। machine चल रही है, ध्यान से सुन लेना।",
+      "expected": [
+        {"kind": "update", "item": "bracket", "spec": null, "quantity": null, "unit": null, "rate": 40, "delivery_in_days": 5, "order_id": 1}
+      ]
+    },
+    {
+      "id": "C10",
+      "category": "quantity_and_date_change",
+      "client": "patel",
+      "speaker": "male",
+      "script": "Patel Engineering se bol raha hoon. Base plate wala order, saath piece ki jagah sau piece kar do, aur kal tak chahiye.",
+      "reference": "Patel Engineering से बोल रहा हूँ। base plate वाला order, साठ piece की जगह सौ piece कर दो, और कल तक चाहिए।",
+      "expected": [
+        {"kind": "update", "item": "base plate", "spec": null, "quantity": 100, "unit": "pcs", "rate": null, "delivery_in_days": 1, "order_id": 6}
+      ]
+    }
+  ]
+}
