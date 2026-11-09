@@ -115,6 +115,8 @@ Live LLM: Groq gpt-oss-120b with Gemini Flash-Lite fallback.
 
 10 notes is a small set; numbers vary by about ±1 item between runs due to LLM variance.
 
+In both runs, no item was saved to the wrong order. Every miss was either a wrong value (misheard in the transcript or misread by the LLM) or a low-confidence item sent to the owner.
+
 Numbers come from `eval/results.md`.
 
 ## Tech stack (all free tier, no credit card)
