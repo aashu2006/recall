@@ -40,8 +40,11 @@ class Settings(BaseSettings):
     # LLMs (Groq primary, Gemini fallback)
     groq_api_key: str = ""
     groq_model: str = ""
+    groq_base_url: str = "https://api.groq.com/openai/v1"
     gemini_api_key: str = ""
     gemini_model: str = ""
+    gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
+    llm_timeout: float = 30.0
 
     # Supabase
     supabase_url: str = ""
