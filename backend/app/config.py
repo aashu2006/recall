@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     wa_verify_token: str = ""
     wa_app_secret: str = ""
     wa_graph_api_version: str = "v21.0"
+    wa_graph_base_url: str = "https://graph.facebook.com"
     wa_daily_send_cap: int = 50
     owner_wa_number: str = ""
 

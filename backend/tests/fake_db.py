@@ -128,5 +128,6 @@ class FakeDb:
     def sends_since(self, since: datetime) -> int:
         return sum(1 for s in self.sends if s["created_at"] >= since)
 
-    def record_send(self, to_phone, kind):
-        self.sends.append({"to_phone": to_phone, "kind": kind, "created_at": datetime.now().astimezone()})
+    def record_send(self, to_phone, kind, wa_message_id=None):
+        self.sends.append({"to_phone": to_phone, "kind": kind, "wa_message_id": wa_message_id,
+                           "created_at": datetime.now().astimezone()})

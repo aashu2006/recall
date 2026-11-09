@@ -158,6 +158,19 @@ class Db:
         self.sb.table("pending_confirmations").update({"status": "pending", "resolved_at": None}) \
             .eq("id", pending_id).execute()
 
+    # whatsapp send log (daily cap)
+    def sends_since(self, since: datetime) -> int:
+        res = (
+            self.sb.table("wa_sends").select("id", count="exact")
+            .gte("created_at", since.isoformat()).limit(1).execute()
+        )
+        return res.count or 0
+
+    def record_send(self, to_phone: str, kind: str, wa_message_id: str | None = None) -> None:
+        self.sb.table("wa_sends").insert(
+            {"to_phone": to_phone, "kind": kind, "wa_message_id": wa_message_id}
+        ).execute()
+
     # storage
     def upload(self, object_path: str, local_path: str | Path, content_type: str) -> str:
         self.sb.storage.from_(self.bucket).upload(
