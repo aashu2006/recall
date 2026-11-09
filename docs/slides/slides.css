@@ -1,0 +1,107 @@
+/* Demo video slides, 1920x1080. Same register look as the dashboard (dashboard/app/globals.css):
+   warm paper, ink-blue writing, faint ruled lines, a red margin line. */
+:root {
+  --paper: #f9f5eb;
+  --paper-2: #f1ead9;
+  --paper-3: #fdfbf5;
+  --ink: #1c2a4f;
+  --ink-soft: #5d667e;
+  --ink-faint: #8a90a0;
+  --rule: #dcd6c7;
+  --rule-blue: #cdd5e5;
+  --red: #a8372a;
+  --green: #2f6f45;
+  --line: 60px; /* ruled line spacing */
+  --margin: 220px; /* red margin line from the left edge */
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+html,
+body {
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+}
+
+body {
+  position: relative;
+  background-color: var(--paper);
+  background-image: linear-gradient(to bottom, transparent calc(var(--line) - 1.5px), var(--rule-blue) calc(var(--line) - 1.5px));
+  background-size: 100% var(--line);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", "IBM Plex Sans Devanagari", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Red double margin line, like a bahi-khata page. */
+body::before,
+body::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--red);
+  opacity: 0.75;
+}
+body::before {
+  left: var(--margin);
+}
+body::after {
+  left: calc(var(--margin) + 8px);
+}
+
+.page {
+  position: absolute;
+  inset: 0 120px 0 calc(var(--margin) + 90px);
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: calc(var(--line) * 2);
+  padding-top: 26px;
+}
+.brand svg {
+  width: 44px;
+  height: 44px;
+}
+.brand .name {
+  font-family: "IBM Plex Serif", serif;
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.brand .deva {
+  font-family: "IBM Plex Sans Devanagari", sans-serif;
+  font-size: 26px;
+  color: var(--ink-soft);
+}
+
+.label {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+.serif {
+  font-family: "IBM Plex Serif", serif;
+}
+
+[lang="hi"],
+.deva {
+  font-family: "IBM Plex Sans Devanagari", "IBM Plex Sans", sans-serif;
+}

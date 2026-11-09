@@ -1,0 +1,72 @@
+<!doctype html>
+<!-- Title card for the demo video. Render: docs/slides/render.sh -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Recall title</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Sans+Devanagari:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=block"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="slides.css" />
+    <style>
+      .center {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-bottom: calc(var(--line) * 2);
+      }
+      .mark {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 56px;
+      }
+      h1 {
+        font-family: "IBM Plex Serif", serif;
+        font-size: 120px;
+        font-weight: 600;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+      }
+      h1 .rest {
+        display: block;
+        color: var(--ink-soft);
+        font-weight: 500;
+      }
+      .deva {
+        margin-top: 28px;
+        font-size: 44px;
+        color: var(--red);
+      }
+      .built {
+        margin-top: 72px;
+        padding-top: 28px;
+        border-top: 1.5px solid var(--rule);
+        width: fit-content;
+        font-size: 40px;
+        font-weight: 500;
+      }
+      .built .soft {
+        color: var(--ink-soft);
+        font-weight: 400;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="center">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="2.5" y="2.5" width="19" height="19" rx="3" fill="var(--paper-3)" stroke="var(--ink)" stroke-width="1.2" />
+          <path d="M8 3v18" stroke="var(--red)" stroke-width="1.1" />
+          <path d="M10.5 9.5h7M10.5 14.5h5" stroke="var(--ink)" stroke-width="1.1" stroke-linecap="round" />
+        </svg>
+        <h1>Recall:<span class="rest">voice notes to order book</span></h1>
+        <p class="deva" lang="hi">ऑर्डर बही</p>
+        <p class="built"><span class="soft">Built on</span> Gnani Prisma + Timbre</p>
+      </div>
+    </div>
+  </body>
+</html>
